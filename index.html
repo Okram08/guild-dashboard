@@ -941,8 +941,8 @@
     </div>
     <div class="field">
       <label>Proxy CORS (pour Stooq)</label>
-      <input type="text" id="setProxy" placeholder="https://api.allorigins.win/raw?url=">
-      <div class="hint">Alternative si le défaut échoue : <code style="color:var(--gold-pale)">https://corsproxy.io/?url=</code></div>
+      <input type="text" id="setProxy" placeholder="Laisser vide = chaîne auto (corsproxy.io, allorigins, codetabs)">
+      <div class="hint">Vide = essaie 3 proxies en fallback auto · Custom : ex <code style="color:var(--gold-pale)">https://corsproxy.io/?url=</code></div>
     </div>
     <div class="scroll-actions">
       <button id="setCancel">Fermer</button>
@@ -1179,7 +1179,7 @@ const DEFAULT_STATE = {
   accounts: Object.fromEntries(ACCOUNT_DEFS.map(a => [a.id, 0])),
   lastUpdate: null,
   prevTotal: 0,
-  proxyUrl: "https://api.allorigins.win/raw?url=",
+  proxyUrl: "",  // empty = auto fallback chain
 };
 
 /* ---------- Crypto helpers (Web Crypto API) ---------- */
@@ -1745,13 +1745,13 @@ function toast(msg, cls=""){
 function openSettings(){
   document.getElementById("setGuildName").value = state.guildName;
   document.getElementById("setGoal").value = state.goal;
-  document.getElementById("setProxy").value = state.proxyUrl || "https://api.allorigins.win/raw?url=";
+  document.getElementById("setProxy").value = state.proxyUrl || "";
   document.getElementById("settingsVeil").classList.add("show");
 }
 async function saveSettings(){
   const name = document.getElementById("setGuildName").value.trim() || "Guilde du Mille Royaume";
   const goal = parseFloat(document.getElementById("setGoal").value) || 1000000;
-  const proxy = document.getElementById("setProxy").value.trim() || "https://api.allorigins.win/raw?url=";
+  const proxy = document.getElementById("setProxy").value.trim();  // empty string = auto chain
   state.guildName = name;
   state.goal = goal;
   state.proxyUrl = proxy;
@@ -1825,31 +1825,58 @@ function uid(){ return "p_" + Date.now().toString(36) + Math.random().toString(3
 
 async function fetchStooqPrice(ticker){
   // Returns { price, date, time } or throws
-  // Stooq doesn't send CORS headers, so we route through a public CORS proxy.
+  // Stooq doesn't send CORS headers, so we route through public CORS proxies.
+  // We try a chain: if one fails (timeout/down), we fall through to the next.
   const clean = ticker.trim().toLowerCase();
   const stooqUrl = `https://stooq.com/q/l/?s=${encodeURIComponent(clean)}&f=sd2t2c&h&e=csv`;
-  const proxy = (state.proxyUrl && state.proxyUrl.trim()) || "https://api.allorigins.win/raw?url=";
-  const url = proxy + encodeURIComponent(stooqUrl);
 
-  let res;
-  try {
-    res = await fetch(url, {cache:"no-store"});
-  } catch(e){
-    throw new Error("Proxy CORS inaccessible");
+  const DEFAULT_PROXIES = [
+    "https://corsproxy.io/?url=",
+    "https://api.allorigins.win/raw?url=",
+    "https://api.codetabs.com/v1/proxy?quest=",
+  ];
+
+  // If user set a custom proxy, use only that one. Otherwise try the chain.
+  const custom = (state.proxyUrl || "").trim();
+  const proxies = custom ? [custom] : DEFAULT_PROXIES;
+
+  let lastErr = null;
+  for(const proxy of proxies){
+    const url = proxy + encodeURIComponent(stooqUrl);
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 8000); // 8s timeout per proxy
+    try {
+      let res;
+      try {
+        res = await fetch(url, {cache:"no-store", signal: ctrl.signal});
+      } finally {
+        clearTimeout(tid);
+      }
+      if(!res.ok){ lastErr = new Error("Proxy HTTP "+res.status); continue; }
+      const text = (await res.text()).trim();
+      if(!text){ lastErr = new Error("Réponse vide"); continue; }
+      const lines = text.split(/\r?\n/);
+      if(lines.length < 2){ lastErr = new Error("Format invalide"); continue; }
+      // CSV header: Symbol,Date,Time,Close
+      const cols = lines[1].split(",");
+      if(cols.length < 4){ lastErr = new Error("CSV malformé"); continue; }
+      const close = cols[3];
+      if(close === "N/D" || close === "" || close == null){
+        // Real ticker error - don't retry with other proxies
+        throw new Error("Ticker inconnu sur Stooq (essaie FWIA.DE, FWRA.UK, etc.)");
+      }
+      const price = parseFloat(close);
+      if(isNaN(price) || price <= 0) throw new Error("Cours invalide");
+      return { price, date: cols[1], time: cols[2] };
+    } catch(e){
+      // Hard errors (ticker unknown) bubble up
+      if(e.message && e.message.includes("Ticker inconnu")) throw e;
+      if(e.name === "AbortError") lastErr = new Error("Timeout proxy (>8s)");
+      else lastErr = e;
+      // Continue to next proxy
+    }
   }
-  if(!res.ok) throw new Error("Proxy HTTP "+res.status);
-  const text = (await res.text()).trim();
-  if(!text) throw new Error("Réponse vide");
-  const lines = text.split(/\r?\n/);
-  if(lines.length < 2) throw new Error("Format invalide");
-  // CSV header: Symbol,Date,Time,Close
-  const cols = lines[1].split(",");
-  if(cols.length < 4) throw new Error("CSV malformé");
-  const close = cols[3];
-  if(close === "N/D" || close === "" || close == null) throw new Error("Ticker inconnu sur Stooq");
-  const price = parseFloat(close);
-  if(isNaN(price) || price <= 0) throw new Error("Cours invalide");
-  return { price, date: cols[1], time: cols[2] };
+  throw lastErr || new Error("Tous les proxies ont échoué");
 }
 
 function posStatusClass(p){
