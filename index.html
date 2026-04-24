@@ -1809,10 +1809,10 @@ async function ethCall(rpcUrl, to, data){
 // Try multiple Ethereum RPCs until one works
 async function ethCallWithFallback(to, data){
   const RPCS = [
-    "https://eth.llamarpc.com",
+    "https://cloudflare-eth.com",              // Cloudflare's own, very stable
     "https://ethereum-rpc.publicnode.com",
     "https://rpc.ankr.com/eth",
-    "https://cloudflare-eth.com",
+    "https://eth.llamarpc.com",                // llamarpc last (often rate-limited)
   ];
   let lastErr = null;
   for(const rpc of RPCS){
@@ -1878,47 +1878,108 @@ async function fetchEnzymeVaultValue(vaultAddress, userAddress){
   if(!/^0x[a-f0-9]{40}$/.test(user)) throw new Error("Adresse user invalide");
 
   const SEL_BALANCE_OF = selector("balanceOf(address)");
+  const SEL_TOTAL_SUPPLY = selector("totalSupply()");
   const SEL_GET_ACCESSOR = selector("getAccessor()");
+  const SEL_GET_DENOM = selector("getDenominationAsset()");
   const SEL_CALC_GROSS_SHARE_VALUE = selector("calcGrossShareValue()");
+  const SEL_CALC_GAV = selector("calcGav()");
   const SEL_DECIMALS = selector("decimals()");
 
   const userPadded = user.replace("0x","").padStart(64, "0");
 
-  // 1) User's shares balance (ERC20 balanceOf on VaultProxy)
+  // 1) User's shares (ERC20 balanceOf on VaultProxy)
   const sharesHex = await ethCallWithFallback(vault, SEL_BALANCE_OF + userPadded);
   const shares = BigInt(sharesHex || "0x0");
+  console.log("Enzyme shares (raw):", shares.toString());
   if(shares === 0n){
     return { valueEur: 0, valueUsd: 0, rate: 1, shares: 0, note: "Aucune share dans ce vault" };
   }
 
-  // 2) Get ComptrollerProxy address via getAccessor() on VaultProxy
+  // 2) Get ComptrollerProxy via getAccessor() on VaultProxy
   const accessorHex = await ethCallWithFallback(vault, SEL_GET_ACCESSOR);
   if(!accessorHex || accessorHex === "0x") throw new Error("Impossible de récupérer le ComptrollerProxy");
   const comptroller = "0x" + accessorHex.slice(-40);
+  console.log("Enzyme comptroller:", comptroller);
 
-  // 3) Get gross share value: returns (address denominationAsset, uint256 grossShareValue)
-  //    grossShareValue = value of 1 share (10^18 wei) in denomination asset units (native decimals)
-  const grossHex = await ethCallWithFallback(comptroller, SEL_CALC_GROSS_SHARE_VALUE);
-  if(!grossHex || grossHex.length < 130) throw new Error("Réponse calcGrossShareValue invalide");
-  const denomAsset = "0x" + grossHex.slice(2, 66).slice(-40);
-  const grossShareValue = BigInt("0x" + grossHex.slice(66, 130));
+  // 3) Get share value + denomination asset
+  //    Multiple Enzyme versions return different formats:
+  //    - Legacy: calcGrossShareValue() returns (address denominationAsset, uint256 value) → 130 chars
+  //    - V4:     calcGrossShareValue() returns (uint256 value) → 66 chars, denomAsset via separate call
+  //    - Fallback: calcGav() + totalSupply() gives same ratio
+  let denomAsset = null;
+  let grossShareValue = 0n;  // value per 1 full share (10^18 wei) in denom asset units
+  let methodUsed = null;
 
-  // 4) Get denomination asset decimals
+  // Attempt A: calcGrossShareValue()
+  try {
+    const grossHex = await ethCallWithFallback(comptroller, SEL_CALC_GROSS_SHARE_VALUE);
+    console.log("calcGrossShareValue raw response:", grossHex, "length:", grossHex?.length);
+    if(grossHex && grossHex.length >= 130){
+      denomAsset = "0x" + grossHex.slice(2, 66).slice(-40);
+      grossShareValue = BigInt("0x" + grossHex.slice(66, 130));
+      methodUsed = "calcGrossShareValue(tuple)";
+    } else if(grossHex && grossHex.length >= 66 && grossHex !== "0x"){
+      grossShareValue = BigInt(grossHex);
+      const denomHex = await ethCallWithFallback(comptroller, SEL_GET_DENOM);
+      if(denomHex && denomHex.length >= 66){
+        denomAsset = "0x" + denomHex.slice(-40);
+        methodUsed = "calcGrossShareValue(uint256) + getDenominationAsset";
+      }
+    }
+  } catch(e){
+    console.warn("calcGrossShareValue path failed:", e.message);
+  }
+
+  // Attempt B: calcGav() + totalSupply()
+  if(!methodUsed){
+    try {
+      const gavHex = await ethCallWithFallback(comptroller, SEL_CALC_GAV);
+      console.log("calcGav raw response:", gavHex, "length:", gavHex?.length);
+      let gav = 0n;
+      if(gavHex && gavHex.length >= 130){
+        denomAsset = "0x" + gavHex.slice(2, 66).slice(-40);
+        gav = BigInt("0x" + gavHex.slice(66, 130));
+      } else if(gavHex && gavHex.length >= 66 && gavHex !== "0x"){
+        gav = BigInt(gavHex);
+        const denomHex = await ethCallWithFallback(comptroller, SEL_GET_DENOM);
+        if(denomHex && denomHex.length >= 66){
+          denomAsset = "0x" + denomHex.slice(-40);
+        }
+      }
+      if(gav > 0n && denomAsset){
+        const totalSupplyHex = await ethCallWithFallback(vault, SEL_TOTAL_SUPPLY);
+        const totalSupply = BigInt(totalSupplyHex || "0x0");
+        if(totalSupply > 0n){
+          // Derive per-share value: gav / totalSupply, scaled to match grossShareValue semantics
+          grossShareValue = (gav * (10n ** 18n)) / totalSupply;
+          methodUsed = "calcGav + totalSupply";
+        }
+      }
+    } catch(e){
+      console.warn("calcGav fallback failed:", e.message);
+    }
+  }
+
+  if(!methodUsed || !denomAsset){
+    throw new Error("Aucune méthode de pricing vault n'a fonctionné (calcGrossShareValue, calcGav)");
+  }
+  console.log("Enzyme method used:", methodUsed, "| denom asset:", denomAsset);
+
+  // 4) Denomination asset decimals
   let denomDecimals = 18;
   try {
     const decHex = await ethCallWithFallback(denomAsset, SEL_DECIMALS);
-    denomDecimals = parseInt(decHex, 16);
-    if(isNaN(denomDecimals) || denomDecimals < 0 || denomDecimals > 30) denomDecimals = 18;
+    const d = parseInt(decHex, 16);
+    if(!isNaN(d) && d >= 0 && d <= 30) denomDecimals = d;
   } catch(e){
     console.warn("decimals() fail, assuming 18", e.message);
   }
 
-  // 5) Compute total user value in denomination asset units (raw, then human)
-  //    totalRaw = shares * grossShareValue / 10^18
+  // 5) Compute total in denom asset: totalRaw = shares * grossShareValue / 10^18
   const totalInDenomRaw = (shares * grossShareValue) / (10n ** 18n);
   const totalInDenomHuman = Number(totalInDenomRaw) / Math.pow(10, denomDecimals);
 
-  // 6) Convert denomination asset → USD
+  // 6) Denom asset → USD via CoinGecko
   const priceUsd = await fetchTokenUsdPrice(denomAsset);
   const valueUsd = totalInDenomHuman * priceUsd;
   const rate = await getUsdEurRate();
@@ -1933,6 +1994,7 @@ async function fetchEnzymeVaultValue(vaultAddress, userAddress){
     denomDecimals,
     denomPriceUsd: priceUsd,
     comptroller,
+    methodUsed,
   };
 }
 
