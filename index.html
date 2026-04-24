@@ -1235,7 +1235,7 @@
     <div class="panel chronicle">
       <div class="panel-head">
         <h2>Chronique de la Fortune</h2>
-        <button class="record-btn" id="btnRecord">⚔ Sceller Cet Instant</button>
+        <span class="sub" id="chronicleSub">Auto · 1 point par jour</span>
       </div>
       <canvas id="chartCanvas"></canvas>
     </div>
@@ -1681,7 +1681,13 @@ function renderMages(){
   grid.innerHTML = "";
   const total = getTotal();
 
-  ACCOUNT_DEFS.forEach(def => {
+  // Sort mages by individual power (value) descending
+  // Stable sort: preserve original order for equal values
+  const sortedMages = ACCOUNT_DEFS
+    .map((def, idx) => ({ def, idx, value: getAccountValue(def.id) }))
+    .sort((a, b) => b.value - a.value || a.idx - b.idx);
+
+  sortedMages.forEach(({def}) => {
     const v = getAccountValue(def.id);
     const share = total > 0 ? (v/total*100) : 0;
     const mageName = getMageName(def.id);
@@ -1996,6 +2002,7 @@ async function saveEdit(){
   state.accounts[id] = val === "" ? 0 : Math.max(0, parseFloat(val) || 0);
   state.lastUpdate = Date.now();
   await saveState();
+  await autoRecordChronicle();
 
   const newTotal = getTotal();
   const newRank = getRank(newTotal).current;
@@ -2021,20 +2028,51 @@ function ascend(rank){
   setTimeout(() => el.classList.remove("show"), 6000);
 }
 
-async function recordChronicle(){
+function getAccountsSnapshot(){
+  const snap = {};
+  ACCOUNT_DEFS.forEach(d => snap[d.id] = getAccountValue(d.id));
+  return snap;
+}
+
+function dayKey(ts){
+  // YYYY-MM-DD for grouping entries by calendar day
+  return new Date(ts).toISOString().slice(0,10);
+}
+
+async function autoRecordChronicle(){
+  // Upsert today's snapshot: if today already has an entry, update it.
+  // Otherwise, append. Always keep chronicle.length <= 365 entries.
   const total = getTotal();
-  state.prevTotal = total;
-  chronicle.push({
-    t: Date.now(),
-    total,
-    accounts: {...state.accounts}
-  });
-  // Keep last 100
-  if(chronicle.length > 100) chronicle = chronicle.slice(-100);
+  const today = dayKey(Date.now());
+  const last = chronicle[chronicle.length - 1];
+  const lastDay = last ? dayKey(last.t) : null;
+
+  // Update prevTotal from the most recent entry NOT from today (for delta display)
+  let yesterdayEntry = null;
+  for(let i = chronicle.length - 1; i >= 0; i--){
+    if(dayKey(chronicle[i].t) !== today){ yesterdayEntry = chronicle[i]; break; }
+  }
+  state.prevTotal = yesterdayEntry ? yesterdayEntry.total : 0;
+
+  if(lastDay === today){
+    // Same day → refresh today's entry in place
+    last.t = Date.now();
+    last.total = total;
+    last.accounts = getAccountsSnapshot();
+  } else {
+    // New day → append
+    chronicle.push({
+      t: Date.now(),
+      total,
+      accounts: getAccountsSnapshot()
+    });
+  }
+
+  // Keep max 1 year of history
+  if(chronicle.length > 365) chronicle = chronicle.slice(-365);
+
   await saveState();
   await saveChronicle();
-  renderAll();
-  toast("⚔ Chronique scellée", "epic");
 }
 
 function toast(msg, cls=""){
@@ -2490,6 +2528,7 @@ async function savePosition(){
 
   state.lastUpdate = Date.now();
   await saveState();
+  await autoRecordChronicle();
   closePosEdit();
   renderPositions();
   renderAll();
@@ -2510,6 +2549,7 @@ async function deletePosition(){
   acc.positions = acc.positions.filter(x => x.id !== posEditing);
   state.lastUpdate = Date.now();
   await saveState();
+  await autoRecordChronicle();
   closePosEdit();
   renderPositions();
   renderAll();
@@ -2548,6 +2588,7 @@ async function refreshAllPrices(){
 
   state.lastUpdate = Date.now();
   await saveState();
+  await autoRecordChronicle();
   renderPositions();
   renderAll();
 
@@ -2574,7 +2615,11 @@ async function refreshAllPrices(){
 
 /* ---------- Boot ---------- */
 function boot(){
-  renderAll();
+  // Record today's chronicle point on launch
+  autoRecordChronicle().then(() => {
+    renderAll();
+  });
+
   setupGuildNameEdit();
 
   document.getElementById("btnSettings").addEventListener("click", openSettings);
@@ -2590,7 +2635,6 @@ function boot(){
     if(e.key === "Escape") closeEdit();
   });
 
-  document.getElementById("btnRecord").addEventListener("click", recordChronicle);
   document.getElementById("btnExport").addEventListener("click", doExport);
   document.getElementById("btnImport").addEventListener("click", () => document.getElementById("importFile").click());
   document.getElementById("importFile").addEventListener("change", e => {
