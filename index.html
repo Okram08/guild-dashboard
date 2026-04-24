@@ -939,11 +939,26 @@
       <label>Objectif final (€)</label>
       <input type="number" id="setGoal" step="10000" placeholder="1000000">
     </div>
-    <div class="field">
-      <label>Proxy CORS (pour Stooq)</label>
-      <input type="text" id="setProxy" placeholder="Laisser vide = chaîne auto (corsproxy.io, allorigins, codetabs)">
-      <div class="hint">Vide = essaie 3 proxies en fallback auto · Custom : ex <code style="color:var(--gold-pale)">https://corsproxy.io/?url=</code></div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(201,160,74,0.2)">
+      <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">◈ Oracle des Cours</div>
+
+      <div class="field">
+        <label>Clé API Twelve Data <span style="color:var(--success);font-weight:normal">(recommandé)</span></label>
+        <input type="text" id="setTwelveKey" placeholder="xxxxxxxxxxxxxxxx">
+        <div class="hint">
+          Gratuit 800 req/jour · CORS natif (pas de proxy) · Inscription 2 min :
+          <a href="https://twelvedata.com/register" target="_blank" style="color:var(--gold-bright);text-decoration:underline">twelvedata.com/register</a>
+        </div>
+      </div>
+
+      <div class="field">
+        <label style="opacity:.7">Proxy CORS (fallback Stooq si pas de clé)</label>
+        <input type="text" id="setProxy" placeholder="Laisser vide = chaîne auto">
+        <div class="hint" style="opacity:.7">Utilisé uniquement si pas de clé Twelve Data. Ex : <code style="color:var(--gold-pale)">https://corsproxy.io/?url=</code></div>
+      </div>
     </div>
+
     <div class="scroll-actions">
       <button id="setCancel">Fermer</button>
       <button class="primary" id="setSave">Valider</button>
@@ -1179,7 +1194,8 @@ const DEFAULT_STATE = {
   accounts: Object.fromEntries(ACCOUNT_DEFS.map(a => [a.id, 0])),
   lastUpdate: null,
   prevTotal: 0,
-  proxyUrl: "",  // empty = auto fallback chain
+  proxyUrl: "",            // Empty = auto CORS proxy chain (Stooq fallback)
+  twelveDataKey: "",       // If set, use Twelve Data API (recommended)
 };
 
 /* ---------- Crypto helpers (Web Crypto API) ---------- */
@@ -1746,19 +1762,22 @@ function openSettings(){
   document.getElementById("setGuildName").value = state.guildName;
   document.getElementById("setGoal").value = state.goal;
   document.getElementById("setProxy").value = state.proxyUrl || "";
+  document.getElementById("setTwelveKey").value = state.twelveDataKey || "";
   document.getElementById("settingsVeil").classList.add("show");
 }
 async function saveSettings(){
   const name = document.getElementById("setGuildName").value.trim() || "Guilde du Mille Royaume";
   const goal = parseFloat(document.getElementById("setGoal").value) || 1000000;
-  const proxy = document.getElementById("setProxy").value.trim();  // empty string = auto chain
+  const proxy = document.getElementById("setProxy").value.trim();
+  const twelveKey = document.getElementById("setTwelveKey").value.trim();
   state.guildName = name;
   state.goal = goal;
   state.proxyUrl = proxy;
+  state.twelveDataKey = twelveKey;
   await saveState();
   document.getElementById("settingsVeil").classList.remove("show");
   renderAll();
-  toast("Conseil scellé");
+  toast(twelveKey ? "Oracle Twelve Data configuré" : "Conseil scellé");
 }
 
 /* ---------- Export / Import ---------- */
@@ -1822,6 +1841,62 @@ let posCurrentAccount = null;  // id of account being managed
 let posEditing = null;         // position id being edited, or null for new
 
 function uid(){ return "p_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* Ticker parsing: "FWIA.DE" → {symbol: "FWIA", exchange: "XETR"} */
+function parseTicker(ticker){
+  const parts = ticker.trim().toUpperCase().split(".");
+  if(parts.length === 1) return { symbol: parts[0], exchange: null };
+  const suffix = parts[1];
+  // Map Stooq-style suffixes → Twelve Data exchange MIC codes
+  const EX_MAP = {
+    "DE": "XETR", "F": "FRA",   // Germany: Xetra / Frankfurt
+    "UK": "LSE", "L": "LSE",    // London
+    "FR": "XPAR", "PA": "XPAR", // Paris
+    "NL": "XAMS",               // Amsterdam
+    "MI": "MIL", "IT": "MIL",   // Milan
+    "SW": "SIX", "CH": "SIX",   // Switzerland
+    "ES": "BME",                // Madrid
+    "US": null,                 // US has no suffix on Twelve Data
+  };
+  return { symbol: parts[0], exchange: EX_MAP[suffix] !== undefined ? EX_MAP[suffix] : suffix };
+}
+
+async function fetchTwelveDataPrice(ticker){
+  const key = (state.twelveDataKey || "").trim();
+  if(!key) throw new Error("Clé Twelve Data manquante");
+  const { symbol, exchange } = parseTicker(ticker);
+  let url = `https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(key)}`;
+  if(exchange) url += `&exchange=${encodeURIComponent(exchange)}`;
+
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 10000);
+  let res;
+  try {
+    res = await fetch(url, {cache:"no-store", signal: ctrl.signal});
+  } catch(e){
+    clearTimeout(tid);
+    if(e.name === "AbortError") throw new Error("Timeout Twelve Data");
+    throw new Error("Twelve Data inaccessible");
+  }
+  clearTimeout(tid);
+  if(!res.ok) throw new Error("API HTTP "+res.status);
+  const data = await res.json();
+  if(data.status === "error") throw new Error(data.message || "API erreur");
+  if(data.code && data.code !== 200) throw new Error(data.message || `Code ${data.code}`);
+  if(!data.price) throw new Error("Prix absent");
+  const price = parseFloat(data.price);
+  if(isNaN(price) || price <= 0) throw new Error("Prix invalide");
+  const now = new Date();
+  return { price, date: now.toISOString().slice(0,10), time: now.toTimeString().slice(0,8) };
+}
+
+async function fetchPrice(ticker){
+  // Primary: Twelve Data (if API key set). Fallback: Stooq via proxy.
+  if((state.twelveDataKey || "").trim()){
+    return fetchTwelveDataPrice(ticker);
+  }
+  return fetchStooqPrice(ticker);
+}
 
 async function fetchStooqPrice(ticker){
   // Returns { price, date, time } or throws
@@ -2091,7 +2166,7 @@ async function refreshAllPrices(){
   // Fetch sequentially to avoid rate limits / proxy throttling
   for(const p of positions){
     try {
-      const r = await fetchStooqPrice(p.ticker);
+      const r = await fetchPrice(p.ticker);
       p.lastPrice = r.price;
       p.lastPriceTime = Date.now();
       p.manual = false;
@@ -2099,7 +2174,7 @@ async function refreshAllPrices(){
     } catch(err){
       fail++;
       failedDetails.push({ticker: p.ticker, err: err.message || "erreur"});
-      console.warn("Stooq fail", p.ticker, err);
+      console.warn("Price fetch fail", p.ticker, err);
     }
   }
 
