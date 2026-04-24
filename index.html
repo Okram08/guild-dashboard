@@ -157,15 +157,150 @@
   .ctrl-btn:hover{background:rgba(139,15,27,0.4);color:var(--gold-bright);border-color:var(--gold)}
   .ctrl-btn svg{width:14px;height:14px;vertical-align:-2px;margin-right:6px}
 
-  /* ---------- Hero Stats : net worth + XP to 1M ---------- */
-  .hero{
+  /* ---------- Guild Master Panel ---------- */
+  .master-panel{
     margin-top:28px;
     display:grid;
-    grid-template-columns:1.35fr 1fr;
-    gap:24px;
+    grid-template-columns:auto 1fr;
+    gap:36px;
+    align-items:stretch;
+    padding:32px;
+    background:
+      radial-gradient(ellipse at 0% 0%, rgba(139,15,27,0.3), transparent 60%),
+      linear-gradient(180deg,rgba(31,22,32,0.9),rgba(13,10,18,0.95));
+    border:1px solid var(--gold);
+    border-radius:4px;
+    position:relative;
+    box-shadow:
+      inset 0 0 0 1px rgba(0,0,0,0.3),
+      inset 0 1px 0 rgba(240,199,92,0.25),
+      0 4px 40px rgba(139,15,27,0.3);
   }
-  @media(max-width:960px){.hero{grid-template-columns:1fr}}
+  .master-panel::before, .master-panel::after{
+    content:"";position:absolute;width:38px;height:38px;
+    border:1px solid var(--gold);opacity:.7;
+  }
+  .master-panel::before{top:-1px;left:-1px;border-right:none;border-bottom:none}
+  .master-panel::after{bottom:-1px;right:-1px;border-left:none;border-top:none}
+  @media(max-width:760px){
+    .master-panel{grid-template-columns:1fr;gap:24px;padding:24px}
+  }
 
+  .master-left{
+    display:flex;align-items:center;gap:20px;
+    padding-right:32px;
+    border-right:1px solid rgba(201,160,74,0.2);
+  }
+  @media(max-width:760px){.master-left{padding-right:0;border-right:none;border-bottom:1px solid rgba(201,160,74,0.2);padding-bottom:24px}}
+
+  .master-portrait{
+    width:130px;height:130px;
+    position:relative;
+    flex-shrink:0;
+    filter:drop-shadow(0 0 16px rgba(240,199,92,0.35));
+  }
+  .master-portrait svg{width:100%;height:100%}
+  .master-portrait::after{
+    content:"";position:absolute;inset:-10px;
+    border-radius:50%;
+    background:conic-gradient(from 0deg,transparent,rgba(240,199,92,0.3),transparent 30%,rgba(139,15,27,0.4) 50%,transparent 70%,rgba(240,199,92,0.3),transparent);
+    animation:spin 30s linear infinite;
+    z-index:-1;
+  }
+
+  .master-meta{display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0}
+  .master-eyebrow{
+    font-family:'Cinzel',serif;font-size:10px;
+    letter-spacing:.5em;text-transform:uppercase;
+    color:var(--gold);opacity:.8;
+  }
+  .master-name{
+    font-family:'UnifrakturCook','Cinzel Decorative',serif;
+    font-size:38px;color:var(--parchment);
+    line-height:1;letter-spacing:.02em;
+    text-shadow:0 0 15px rgba(240,199,92,0.2),0 2px 0 rgba(0,0,0,0.5);
+    cursor:text;border-bottom:1px dashed transparent;
+    transition:border-color .2s;
+  }
+  .master-name:hover{border-bottom-color:var(--gold-dim)}
+  .master-rank-line{
+    font-family:'Cinzel',serif;font-size:12px;
+    letter-spacing:.18em;color:var(--gold-pale);
+    margin-top:6px;
+  }
+  .master-rank-line .dot{color:var(--gold);margin:0 6px;opacity:.6}
+  .master-rank-line em{font-style:italic;color:var(--parchment-dim)}
+
+  .master-right{display:flex;flex-direction:column;justify-content:space-between;gap:20px}
+
+  .power-block{}
+  .power-label{
+    font-family:'Cinzel',serif;font-size:10px;
+    letter-spacing:.3em;text-transform:uppercase;
+    color:var(--gold);opacity:.8;margin-bottom:6px;
+  }
+  .power-val{
+    display:flex;align-items:baseline;gap:8px;
+    font-family:'Cinzel Decorative',serif;font-weight:700;
+    font-size:clamp(36px,5vw,58px);
+    color:var(--gold-bright);line-height:1;
+    text-shadow:0 0 32px rgba(240,199,92,0.35),0 2px 0 rgba(0,0,0,0.6);
+    letter-spacing:.02em;
+  }
+  .power-val .cur{font-size:.45em;color:var(--gold);opacity:.85}
+  .delta{
+    display:inline-flex;align-items:center;gap:6px;
+    margin-top:10px;padding:4px 10px;
+    background:rgba(16,185,129,0.12);
+    border:1px solid rgba(16,185,129,0.3);
+    border-radius:2px;
+    color:var(--success);
+    font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;
+  }
+  .delta.neg{background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3);color:var(--danger)}
+  .power-sub{
+    font-size:11px;color:var(--parchment-faded);font-style:italic;
+    margin-top:8px;font-family:'EB Garamond',serif;
+  }
+
+  .master-quest{}
+  .quest-bar-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .quest-bar-head .label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+  .quest-bar-head .pct{font-family:'Cinzel Decorative',serif;color:var(--gold-bright);font-size:20px}
+  .xp-track{
+    position:relative;
+    height:22px;
+    background:linear-gradient(180deg,#05050a,#0f0a10);
+    border:1px solid var(--gold-dim);
+    border-radius:2px;
+    overflow:hidden;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,0.6);
+  }
+  .xp-fill{
+    position:absolute;inset:0 auto 0 0;
+    background:linear-gradient(180deg,#f0c75c 0%,#c9a04a 50%,#8a6e2a 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,230,160,0.7),
+      inset 0 -1px 0 rgba(0,0,0,0.4),
+      0 0 20px rgba(240,199,92,0.6);
+    transition:width 1.2s cubic-bezier(.2,.8,.2,1);
+  }
+  .xp-fill::after{
+    content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(45deg,transparent 0 10px,rgba(255,255,255,0.08) 10px 20px);
+    animation:shimmer 3s linear infinite;
+  }
+  @keyframes shimmer{0%{background-position:0 0}100%{background-position:40px 0}}
+  .xp-foot{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--parchment-dim);font-style:italic}
+
+  /* Section subhead */
+  .section-head .section-sub{
+    font-size:12px;color:var(--parchment-dim);
+    font-style:italic;font-family:'EB Garamond',serif;
+    margin-left:8px;
+  }
+
+  /* Generic panel (used for chart, ladder) */
   .panel{
     background:
       linear-gradient(180deg,rgba(31,22,32,0.85),rgba(13,10,18,0.92));
@@ -188,113 +323,6 @@
   }
   .panel-head .sub{font-size:12px;color:var(--parchment-dim);font-style:italic}
 
-  /* Net worth block */
-  .treasury .fortune{
-    display:flex;align-items:baseline;gap:12px;
-    font-family:'Cinzel Decorative',serif;font-weight:700;
-    font-size:clamp(40px,6vw,68px);
-    color:var(--gold-bright);
-    line-height:1;
-    text-shadow:0 0 32px rgba(240,199,92,0.35),0 2px 0 rgba(0,0,0,0.6);
-    letter-spacing:.02em;
-  }
-  .treasury .fortune .currency{font-size:.45em;color:var(--gold);opacity:.85}
-  .treasury .delta{
-    display:inline-flex;align-items:center;gap:6px;
-    margin-top:10px;padding:4px 10px;
-    background:rgba(16,185,129,0.12);
-    border:1px solid rgba(16,185,129,0.3);
-    border-radius:2px;
-    color:var(--success);
-    font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;
-  }
-  .treasury .delta.neg{background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.3);color:var(--danger)}
-
-  /* XP bar to 1M */
-  .quest-bar-wrap{margin-top:26px}
-  .quest-bar-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
-  .quest-bar-head .label{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
-  .quest-bar-head .pct{font-family:'Cinzel Decorative',serif;color:var(--gold-bright);font-size:22px}
-  .xp-track{
-    position:relative;
-    height:26px;
-    background:linear-gradient(180deg,#05050a,#0f0a10);
-    border:1px solid var(--gold-dim);
-    border-radius:2px;
-    overflow:hidden;
-    box-shadow:inset 0 2px 6px rgba(0,0,0,0.6);
-  }
-  .xp-fill{
-    position:absolute;inset:0 auto 0 0;
-    background:
-      linear-gradient(180deg,#f0c75c 0%,#c9a04a 50%,#8a6e2a 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255,230,160,0.7),
-      inset 0 -1px 0 rgba(0,0,0,0.4),
-      0 0 20px rgba(240,199,92,0.6);
-    transition:width 1.2s cubic-bezier(.2,.8,.2,1);
-  }
-  .xp-fill::after{
-    content:"";position:absolute;inset:0;
-    background:repeating-linear-gradient(45deg,transparent 0 10px,rgba(255,255,255,0.08) 10px 20px);
-    animation:shimmer 3s linear infinite;
-  }
-  @keyframes shimmer{0%{background-position:0 0}100%{background-position:40px 0}}
-  .xp-foot{display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--parchment-dim);font-style:italic}
-
-  /* Rank badge card */
-  .rank-card{
-    display:grid;
-    grid-template-columns:auto 1fr;
-    gap:20px;
-    align-items:center;
-  }
-  .rank-emblem{
-    width:120px;height:120px;
-    display:grid;place-items:center;
-    position:relative;
-    font-family:'Cinzel Decorative',serif;
-    font-weight:900;font-size:56px;
-    color:var(--gold-bright);
-    text-shadow:0 0 20px currentColor,0 2px 0 rgba(0,0,0,0.5);
-    background:
-      radial-gradient(circle,rgba(139,15,27,0.5) 0%,rgba(20,20,31,0.3) 60%,transparent 80%);
-    border-radius:50%;
-  }
-  .rank-emblem::before{
-    content:"";
-    position:absolute;
-    inset:0;
-    border:2px solid var(--gold);
-    border-radius:50%;
-    box-shadow:inset 0 0 20px rgba(240,199,92,0.3),0 0 30px rgba(240,199,92,0.25);
-  }
-  .rank-emblem::after{
-    content:"";
-    position:absolute;
-    inset:-10px;
-    border:1px dashed rgba(240,199,92,0.4);
-    border-radius:50%;
-    animation:spin 40s linear infinite;
-  }
-  .rank-info .rank-title{
-    font-family:'UnifrakturCook','Cinzel Decorative',serif;
-    font-size:32px;color:var(--parchment);
-    line-height:1.05;margin-bottom:4px;
-    text-shadow:0 0 12px rgba(240,199,92,0.25);
-  }
-  .rank-info .rank-arc{
-    font-family:'Cinzel',serif;font-size:11px;
-    letter-spacing:.3em;text-transform:uppercase;
-    color:var(--gold);opacity:.8;
-    margin-bottom:12px;
-  }
-  .rank-info .next-rank{
-    font-style:italic;color:var(--parchment-dim);font-size:14px;
-    line-height:1.5;
-  }
-  .rank-info .next-rank b{color:var(--gold-pale);font-weight:600;font-style:normal;font-family:'Cinzel',serif;font-size:13px}
-
   /* ---------- Account grid : Les Arcanes ---------- */
   .arcanes{
     margin-top:28px;
@@ -311,8 +339,8 @@
 
   .arc-grid{
     display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-    gap:16px;
+    grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+    gap:18px;
   }
   .arc-card{
     position:relative;
@@ -326,73 +354,142 @@
   }
   .arc-card::before{
     content:"";position:absolute;inset:0;
-    background:radial-gradient(circle at 0% 0%,var(--magic-color),transparent 60%);
-    opacity:.18;pointer-events:none;transition:opacity .25s;
+    background:radial-gradient(circle at 100% 0%,var(--magic-color),transparent 60%);
+    opacity:.15;pointer-events:none;transition:opacity .25s;
   }
   .arc-card::after{
     content:"";position:absolute;top:0;right:0;
-    width:140px;height:140px;
+    width:160px;height:160px;
     background:radial-gradient(circle,var(--magic-color),transparent 70%);
-    opacity:.15;filter:blur(20px);pointer-events:none;
+    opacity:.18;filter:blur(24px);pointer-events:none;
   }
   .arc-card:hover{
     transform:translateY(-3px);
     border-color:var(--magic-color);
-    box-shadow:0 8px 28px -8px var(--magic-color);
+    box-shadow:0 8px 32px -8px var(--magic-color);
   }
-  .arc-card:hover::before{opacity:.3}
+  .arc-card:hover::before{opacity:.28}
 
-  .arc-head{
-    display:flex;align-items:center;justify-content:space-between;
-    margin-bottom:18px;position:relative;z-index:1;
-  }
-  .arc-rune{
-    width:48px;height:48px;
-    display:grid;place-items:center;
-    font-size:26px;
-    background:linear-gradient(135deg,var(--magic-color) 0%,transparent 100%);
-    border:1px solid var(--magic-color);
-    border-radius:2px;
-    filter:drop-shadow(0 0 8px var(--magic-color));
-  }
-  .arc-label{text-align:right}
-  .arc-label .magic-name{
-    font-family:'Cinzel',serif;
-    font-weight:600;font-size:11px;
-    letter-spacing:.25em;text-transform:uppercase;
-    color:var(--magic-color);
-    filter:brightness(1.3);
-  }
-  .arc-label .account-name{
-    font-family:'EB Garamond',serif;font-style:italic;
-    font-size:13px;color:var(--parchment-dim);margin-top:3px;
-  }
-
-  .arc-value{
-    font-family:'Cinzel Decorative',serif;font-weight:700;
-    font-size:32px;color:var(--parchment);
-    line-height:1;letter-spacing:.01em;
-    margin-bottom:6px;position:relative;z-index:1;
-  }
-  .arc-value .cur{color:var(--gold);font-size:.65em;margin-left:4px;opacity:.8}
-  .arc-share{
-    font-family:'Cinzel',serif;font-size:11px;
-    letter-spacing:.18em;color:var(--parchment-faded);
-    text-transform:uppercase;margin-bottom:14px;
+  /* Mage portrait (top-left) */
+  .mage-head{
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    gap:14px;
+    align-items:flex-start;
+    margin-bottom:18px;
     position:relative;z-index:1;
   }
-  .arc-share .pct{color:var(--magic-color);filter:brightness(1.4);font-weight:600}
-
-  .arc-bar{
-    height:4px;background:rgba(0,0,0,0.4);
-    border-radius:2px;overflow:hidden;position:relative;z-index:1;
+  .mage-portrait{
+    width:66px;height:66px;
+    position:relative;flex-shrink:0;
+    filter:drop-shadow(0 0 10px var(--magic-color));
   }
-  .arc-bar-fill{
+  .mage-portrait svg{width:100%;height:100%;display:block}
+  .mage-portrait .rank-badge{
+    position:absolute;bottom:-4px;right:-4px;
+    width:24px;height:24px;
+    display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--crimson-bright),var(--crimson));
+    border:1px solid var(--gold);
+    border-radius:50%;
+    font-family:'Cinzel Decorative',serif;font-weight:700;
+    font-size:11px;color:var(--gold-bright);
+    text-shadow:0 1px 0 rgba(0,0,0,0.6);
+    box-shadow:0 2px 6px rgba(0,0,0,0.6);
+  }
+
+  .mage-identity{min-width:0}
+  .mage-identity .mage-name-row{
+    display:flex;align-items:center;gap:6px;
+  }
+  .mage-identity .mage-name{
+    font-family:'UnifrakturCook',serif;font-size:20px;
+    color:var(--parchment);line-height:1.05;
+    text-shadow:0 0 10px rgba(240,199,92,0.2);
+    cursor:text;border-bottom:1px dashed transparent;
+    transition:border-color .2s;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .mage-identity .mage-name:hover{border-bottom-color:var(--gold-dim)}
+  .mage-identity .mage-title{
+    font-family:'EB Garamond',serif;font-style:italic;
+    font-size:12px;color:var(--parchment-dim);
+    margin-top:2px;line-height:1.2;
+  }
+  .mage-identity .mage-magic{
+    font-family:'Cinzel',serif;font-weight:600;font-size:10px;
+    letter-spacing:.2em;text-transform:uppercase;
+    color:var(--magic-color);filter:brightness(1.3);
+    margin-top:6px;
+  }
+
+  .mage-stat{text-align:right}
+  .mage-stat .mage-val{
+    font-family:'Cinzel Decorative',serif;font-weight:700;
+    font-size:22px;color:var(--gold-bright);
+    line-height:1;letter-spacing:.01em;
+    text-shadow:0 0 15px rgba(240,199,92,0.25);
+  }
+  .mage-stat .mage-val .cur{font-size:.55em;color:var(--gold);opacity:.75;margin-left:2px}
+  .mage-stat .mage-share{
+    font-family:'Cinzel',serif;font-size:10px;
+    letter-spacing:.15em;color:var(--parchment-faded);
+    text-transform:uppercase;margin-top:3px;
+  }
+  .mage-stat .mage-share .pct{color:var(--magic-color);filter:brightness(1.4);font-weight:600}
+
+  /* Mage rank progress */
+  .mage-progress{
+    position:relative;z-index:1;
+    margin-top:4px;padding-top:14px;
+    border-top:1px solid rgba(201,160,74,0.15);
+  }
+  .mage-progress .mp-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:6px;
+  }
+  .mage-progress .mp-rank{
+    font-family:'Cinzel',serif;font-weight:600;font-size:11px;
+    letter-spacing:.15em;color:var(--parchment);
+  }
+  .mage-progress .mp-rank em{
+    font-style:normal;color:var(--magic-color);filter:brightness(1.4);
+    font-weight:700;
+  }
+  .mage-progress .mp-pct{
+    font-family:'Cinzel Decorative',serif;
+    color:var(--magic-color);filter:brightness(1.3);
+    font-size:14px;font-weight:700;
+  }
+  .mage-progress .mp-bar{
+    height:6px;
+    background:rgba(0,0,0,0.5);
+    border:1px solid rgba(201,160,74,0.1);
+    border-radius:2px;overflow:hidden;
+  }
+  .mage-progress .mp-bar-fill{
     height:100%;
-    background:linear-gradient(90deg,var(--magic-color),transparent 150%);
-    box-shadow:0 0 12px var(--magic-color);
+    background:linear-gradient(90deg,var(--magic-color),color-mix(in srgb,var(--magic-color) 60%,#fff));
+    box-shadow:0 0 10px var(--magic-color);
     transition:width 1s cubic-bezier(.2,.8,.2,1);
   }
+  .mage-progress .mp-foot{
+    display:flex;justify-content:space-between;
+    margin-top:6px;font-size:11px;color:var(--parchment-dim);
+    font-style:italic;font-family:'EB Garamond',serif;
+  }
+  .mage-progress .mp-foot b{color:var(--gold-pale);font-weight:600;font-style:normal;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em}
+
+  .mage-progress .mp-maxed{
+    text-align:center;color:var(--gold-bright);font-style:italic;
+    font-family:'EB Garamond',serif;font-size:13px;padding:4px 0;
+  }
+  .mage-progress .mp-maxed b{
+    font-family:'UnifrakturCook',serif;font-size:16px;
+    display:block;font-style:normal;
+    text-shadow:0 0 15px var(--magic-color);
+  }
+
   .arc-edit{
     position:absolute;top:12px;right:12px;
     width:26px;height:26px;
@@ -1071,21 +1168,45 @@
     </div>
   </div>
 
-  <!-- Hero: Treasury & Rank -->
-  <div class="hero">
-    <div class="panel treasury">
-      <div class="panel-head">
-        <h2>Trésor de la Guilde</h2>
-        <span class="sub" id="lastUpdate">—</span>
+  <!-- Guild Master Panel -->
+  <div class="master-panel">
+    <div class="master-left">
+      <div class="master-portrait" id="masterPortrait">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="mg1" cx="50%" cy="40%"><stop offset="0%" stop-color="#f0c75c"/><stop offset="100%" stop-color="#8a6e2a"/></radialGradient>
+            <linearGradient id="mg2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#c41e3a"/><stop offset="100%" stop-color="#4a0008"/></linearGradient>
+          </defs>
+          <circle cx="50" cy="50" r="46" fill="url(#mg2)" stroke="url(#mg1)" stroke-width="2"/>
+          <circle cx="50" cy="50" r="40" fill="none" stroke="url(#mg1)" stroke-width="0.5" stroke-dasharray="2 4"/>
+          <path d="M50 22 L57 44 L80 44 L61 58 L68 80 L50 66 L32 80 L39 58 L20 44 L43 44 Z" fill="url(#mg1)" stroke="#f0c75c" stroke-width="0.5"/>
+          <circle cx="50" cy="50" r="3" fill="#07070b"/>
+          <text x="50" y="95" text-anchor="middle" fill="#f0c75c" font-family="Cinzel" font-size="6" letter-spacing="0.2em" font-weight="700" id="masterRankLetter">—</text>
+        </svg>
       </div>
-      <div class="fortune">
-        <span id="totalValue">0</span>
-        <span class="currency">€</span>
+      <div class="master-meta">
+        <div class="master-eyebrow">Guild Master</div>
+        <div class="master-name editable" id="masterName">—</div>
+        <div class="master-rank-line">
+          <span id="masterRankTitle">Rang —</span>
+          <span class="dot">·</span>
+          <span id="masterRankArc">—</span>
+        </div>
       </div>
-      <span class="delta" id="delta">—</span>
-      <div class="quest-bar-wrap">
+    </div>
+
+    <div class="master-right">
+      <div class="power-block">
+        <div class="power-label">Puissance de la Guilde</div>
+        <div class="power-val">
+          <span id="totalValue">0</span><span class="cur">€</span>
+        </div>
+        <span class="delta" id="delta">—</span>
+        <div class="power-sub" id="lastUpdate">Jamais scellé</div>
+      </div>
+      <div class="master-quest">
         <div class="quest-bar-head">
-          <span class="label">Quête Légendaire · Objectif <span id="goalLabel">1 000 000 €</span></span>
+          <span class="label">Quête Légendaire · <span id="goalLabel">1 000 000 €</span></span>
           <span class="pct" id="xpPct">0%</span>
         </div>
         <div class="xp-track">
@@ -1093,26 +1214,18 @@
         </div>
         <div class="xp-foot">
           <span id="xpCurrent">0 €</span>
-          <span id="xpRemaining">— restants</span>
+          <span id="xpRemaining">—</span>
         </div>
-      </div>
-    </div>
-
-    <div class="panel rank-card">
-      <div class="rank-emblem" id="rankEmblem">D</div>
-      <div class="rank-info">
-        <div class="rank-arc" id="rankArc">Rang actuel</div>
-        <div class="rank-title" id="rankTitle">—</div>
-        <div class="next-rank" id="nextRank">—</div>
       </div>
     </div>
   </div>
 
-  <!-- Arcanes -->
+  <!-- Mages of the Guild -->
   <div class="arcanes">
     <div class="section-head">
-      <h2>Les Six Arcanes</h2>
+      <h2>Les Six Mages de la Guilde</h2>
       <div class="line"></div>
+      <div class="section-sub">Chacun maîtrise sa propre magie et progresse à son rythme</div>
     </div>
     <div class="arc-grid" id="arcGrid"></div>
   </div>
@@ -1129,8 +1242,8 @@
 
     <div class="panel">
       <div class="panel-head">
-        <h2>Ordre des Rangs</h2>
-        <span class="sub">Neuf paliers vers la légende</span>
+        <h2>Hiérarchie des Mages</h2>
+        <span class="sub">Rang individuel de chaque membre</span>
       </div>
       <div class="ladder-list" id="ladderList"></div>
     </div>
@@ -1183,23 +1296,55 @@ const RANKS = [
 
 /* ---------- Account catalogue ---------- */
 const ACCOUNT_DEFS = [
-  { id:"savings",    type:"savings",    magic:"Coffre du Dragon",    name:"Épargne",          rune:"🝰", icon:"◈" },
-  { id:"degiro",     type:"degiro",     magic:"Magie Céleste",       name:"Degiro",           rune:"✧", icon:"✦" },
-  { id:"common",     type:"common",     magic:"Lien de l'Âme",       name:"Compte Commun",    rune:"♡", icon:"⚭" },
-  { id:"personal",   type:"personal",   magic:"Mana Personnel",      name:"Compte Perso",     rune:"⚕", icon:"☯" },
-  { id:"crypto",     type:"crypto",     magic:"Dragon Slayer Magic", name:"Crypto",           rune:"☲", icon:"🜂" },
-  { id:"polymarket", type:"polymarket", magic:"Arc Divin",           name:"Polymarket",       rune:"⌬", icon:"✺" },
+  {
+    id:"savings", type:"savings",
+    magic:"Coffre du Dragon", name:"Épargne",
+    mageDefault:"Elya la Gardienne", title:"Armurière du Coffre",
+    rune:"🝰", icon:"◈"
+  },
+  {
+    id:"degiro", type:"degiro",
+    magic:"Magie Céleste", name:"Degiro",
+    mageDefault:"Astra la Stellaire", title:"Invocatrice d'Étoiles",
+    rune:"✧", icon:"✦"
+  },
+  {
+    id:"common", type:"common",
+    magic:"Lien de l'Âme", name:"Compte Commun",
+    mageDefault:"Mira la Bienveillante", title:"Tisseuse de Liens",
+    rune:"♡", icon:"⚭"
+  },
+  {
+    id:"personal", type:"personal",
+    magic:"Mana Personnel", name:"Compte Perso",
+    mageDefault:"Nyx l'Introspective", title:"Mage Solitaire",
+    rune:"⚕", icon:"☯"
+  },
+  {
+    id:"crypto", type:"crypto",
+    magic:"Dragon Slayer", name:"Crypto",
+    mageDefault:"Ignis la Dragonne", title:"Tueuse de Dragons",
+    rune:"☲", icon:"🜂"
+  },
+  {
+    id:"polymarket", type:"polymarket",
+    magic:"Arc Divin", name:"Polymarket",
+    mageDefault:"Oracle Sibyl", title:"Voyeuse de Futurs",
+    rune:"⌬", icon:"✺"
+  },
 ];
 
 /* ---------- Default state ---------- */
 const DEFAULT_STATE = {
   guildName: "Guilde du Mille Royaume",
+  guildMasterName: "Okram",       // The player's name (Guild Master)
+  mageNames: {},                  // Custom names per mage: { id: "custom name" }
   goal: 1000000,
   accounts: Object.fromEntries(ACCOUNT_DEFS.map(a => [a.id, 0])),
   lastUpdate: null,
   prevTotal: 0,
-  proxyUrl: "",            // Empty = auto CORS proxy chain (Stooq fallback)
-  twelveDataKey: "",       // If set, use Twelve Data API (recommended)
+  proxyUrl: "",
+  twelveDataKey: "",
 };
 
 /* ---------- Crypto helpers (Web Crypto API) ---------- */
@@ -1366,6 +1511,81 @@ async function skipVault(){
 }
 
 /* ---------- Rendering ---------- */
+function getMageName(id){
+  const custom = state.mageNames && state.mageNames[id];
+  if(custom && custom.trim()) return custom.trim();
+  const def = ACCOUNT_DEFS.find(a => a.id === id);
+  return def ? def.mageDefault : "—";
+}
+
+function getMasterName(){
+  return (state.guildMasterName && state.guildMasterName.trim()) || "Guild Master";
+}
+
+/* Generate unique SVG portraits per mage magic type */
+function mageSvg(type, color){
+  const patterns = {
+    savings: `
+      <circle cx="50" cy="50" r="46" fill="url(#bg-${type})" stroke="${color}" stroke-width="1.5"/>
+      <rect x="32" y="38" width="36" height="30" rx="2" fill="none" stroke="${color}" stroke-width="1.5"/>
+      <rect x="32" y="38" width="36" height="8" fill="${color}" opacity="0.4"/>
+      <circle cx="50" cy="53" r="4" fill="${color}"/>
+      <line x1="50" y1="57" x2="50" y2="65" stroke="${color}" stroke-width="1.5"/>
+      <path d="M25 30 L50 18 L75 30" fill="none" stroke="${color}" stroke-width="1" opacity="0.6"/>
+    `,
+    degiro: `
+      <circle cx="50" cy="50" r="46" fill="url(#bg-${type})" stroke="${color}" stroke-width="1.5"/>
+      <path d="M50 25 L53 42 L68 42 L56 52 L60 68 L50 59 L40 68 L44 52 L32 42 L47 42 Z" fill="${color}" opacity="0.8"/>
+      <circle cx="30" cy="30" r="1.5" fill="${color}"/>
+      <circle cx="72" cy="28" r="1.5" fill="${color}"/>
+      <circle cx="70" cy="75" r="1.5" fill="${color}"/>
+      <circle cx="28" cy="72" r="1.5" fill="${color}"/>
+      <circle cx="80" cy="55" r="1" fill="${color}" opacity="0.6"/>
+      <circle cx="20" cy="55" r="1" fill="${color}" opacity="0.6"/>
+    `,
+    common: `
+      <circle cx="50" cy="50" r="46" fill="url(#bg-${type})" stroke="${color}" stroke-width="1.5"/>
+      <circle cx="40" cy="50" r="14" fill="none" stroke="${color}" stroke-width="2"/>
+      <circle cx="60" cy="50" r="14" fill="none" stroke="${color}" stroke-width="2"/>
+      <circle cx="40" cy="50" r="14" fill="${color}" opacity="0.15"/>
+      <circle cx="60" cy="50" r="14" fill="${color}" opacity="0.15"/>
+      <path d="M46 46 L50 42 L54 46 L58 50 L54 54 L50 58 L46 54 L42 50 Z" fill="${color}" opacity="0.6"/>
+    `,
+    personal: `
+      <circle cx="50" cy="50" r="46" fill="url(#bg-${type})" stroke="${color}" stroke-width="1.5"/>
+      <path d="M50 28 a22 22 0 0 1 0 44 a11 11 0 0 1 0 -22 a11 11 0 0 0 0 -22 z" fill="${color}" opacity="0.75"/>
+      <circle cx="50" cy="39" r="3.5" fill="${color}"/>
+      <circle cx="50" cy="61" r="3.5" fill="#0d0a12"/>
+      <circle cx="50" cy="50" r="22" fill="none" stroke="${color}" stroke-width="1" opacity="0.4"/>
+    `,
+    crypto: `
+      <circle cx="50" cy="50" r="46" fill="url(#bg-${type})" stroke="${color}" stroke-width="1.5"/>
+      <path d="M50 22 Q40 40 35 50 Q38 65 50 78 Q62 65 65 50 Q60 40 50 22 Z" fill="${color}" opacity="0.4"/>
+      <path d="M50 30 Q42 45 40 55 Q45 67 50 72" stroke="${color}" stroke-width="1.5" fill="none"/>
+      <path d="M50 30 Q58 45 60 55 Q55 67 50 72" stroke="${color}" stroke-width="1.5" fill="none"/>
+      <path d="M44 40 L40 35 M56 40 L60 35 M44 58 L40 62 M56 58 L60 62" stroke="${color}" stroke-width="1.5"/>
+      <circle cx="50" cy="52" r="3" fill="${color}"/>
+    `,
+    polymarket: `
+      <circle cx="50" cy="50" r="46" fill="url(#bg-${type})" stroke="${color}" stroke-width="1.5"/>
+      <circle cx="50" cy="50" r="20" fill="none" stroke="${color}" stroke-width="1.5"/>
+      <circle cx="50" cy="50" r="12" fill="none" stroke="${color}" stroke-width="1" opacity="0.7"/>
+      <circle cx="50" cy="50" r="5" fill="${color}"/>
+      <path d="M50 25 L50 30 M50 70 L50 75 M25 50 L30 50 M70 50 L75 50" stroke="${color}" stroke-width="1.5"/>
+      <path d="M32 32 L36 36 M64 36 L68 32 M32 68 L36 64 M64 64 L68 68" stroke="${color}" stroke-width="1" opacity="0.7"/>
+    `,
+  };
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="bg-${type}" cx="50%" cy="40%">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#0d0a12"/>
+      </radialGradient>
+    </defs>
+    ${patterns[type] || patterns.savings}
+  </svg>`;
+}
+
 function fmt(n){
   if(n == null || isNaN(n)) n = 0;
   return new Intl.NumberFormat("fr-FR", {maximumFractionDigits:0}).format(Math.round(n));
@@ -1408,11 +1628,15 @@ function getRank(total){
   return {current, next};
 }
 
-function renderTreasury(){
+function renderGuildMaster(){
   const total = getTotal();
+  const {current, next} = getRank(total);
+
+  // Power value
   document.getElementById("totalValue").textContent = fmt(total);
   document.getElementById("goalLabel").textContent = fmt(state.goal) + " €";
 
+  // XP bar to 1M
   const pct = Math.min(100, (total / state.goal) * 100);
   document.getElementById("xpFill").style.width = pct + "%";
   document.getElementById("xpPct").textContent = pct.toFixed(pct < 10 ? 2 : 1) + "%";
@@ -1436,63 +1660,111 @@ function renderTreasury(){
     ? "Dernier sceau : " + new Date(state.lastUpdate).toLocaleDateString("fr-FR", {day:"2-digit",month:"short",year:"numeric"})
     : "Jamais scellé";
 
-  // Guild name
+  // Master name (editable)
+  document.getElementById("masterName").textContent = getMasterName();
+
+  // Master rank
+  document.getElementById("masterRankTitle").textContent = "Rang " + current.sym;
+  document.getElementById("masterRankArc").textContent = current.name;
+  const rankLetterEl = document.getElementById("masterRankLetter");
+  if(rankLetterEl) rankLetterEl.textContent = current.sym;
+
+  // Guild name (banner)
   document.getElementById("guildName").innerHTML = state.guildName.replace(
     /(\S+)\s*$/,
     "<span>$1</span>"
   );
 }
 
-function renderRank(){
-  const total = getTotal();
-  const {current, next} = getRank(total);
-  document.getElementById("rankEmblem").textContent = current.sym;
-  document.getElementById("rankEmblem").style.color = current.color;
-  document.getElementById("rankEmblem").style.textShadow = `0 0 20px ${current.color}, 0 2px 0 rgba(0,0,0,0.5)`;
-  document.getElementById("rankTitle").textContent = current.name;
-  document.getElementById("rankArc").textContent = `Rang ${current.sym} · ${current.arc}`;
-  const nextEl = document.getElementById("nextRank");
-  if(next){
-    const gap = next.min - total;
-    nextEl.innerHTML = `Prochain palier : <b>${next.name}</b><br>encore ${fmt(gap)} € pour rang ${next.sym}`;
-  } else {
-    nextEl.innerHTML = `<b>Sommet atteint.</b> Tu es une légende vivante. Fixe un nouvel objectif.`;
-  }
-}
-
-function renderArcanes(){
+function renderMages(){
   const grid = document.getElementById("arcGrid");
   grid.innerHTML = "";
   const total = getTotal();
+
   ACCOUNT_DEFS.forEach(def => {
     const v = getAccountValue(def.id);
     const share = total > 0 ? (v/total*100) : 0;
-    const barWidth = Math.min(100, share * 2);
+    const mageName = getMageName(def.id);
+
+    // Individual mage rank based on their own value
+    const {current: mageRank, next: nextMageRank} = getRank(v);
+    const isPos = isPositionsAccount(def.id);
+    const posCount = isPos && state.accounts[def.id] && Array.isArray(state.accounts[def.id].positions)
+      ? state.accounts[def.id].positions.length : 0;
+
+    // Color for this magic type
+    const colorMap = {
+      savings:"#c9a04a", degiro:"#7dd3fc", common:"#f472b6",
+      personal:"#a855f7", crypto:"#ff6b35", polymarket:"#2dd4bf",
+    };
+    const color = colorMap[def.type];
+
+    // Mage progress bar (towards next personal rank)
+    let progressHtml;
+    if(nextMageRank){
+      const progInRank = mageRank.min;
+      const progSpan = nextMageRank.min - mageRank.min;
+      const pct = progSpan > 0 ? ((v - progInRank) / progSpan) * 100 : 0;
+      const gap = nextMageRank.min - v;
+      progressHtml = `
+        <div class="mp-head">
+          <div class="mp-rank">Rang actuel : <em>${mageRank.sym} · ${mageRank.name}</em></div>
+          <div class="mp-pct">${Math.max(0,Math.min(100,pct)).toFixed(0)}%</div>
+        </div>
+        <div class="mp-bar"><div class="mp-bar-fill" style="width:${Math.max(0,Math.min(100,pct)).toFixed(1)}%"></div></div>
+        <div class="mp-foot">
+          <span>Prochain : <b>${nextMageRank.name}</b> (${nextMageRank.sym})</span>
+          <span>+${fmt(gap)} €</span>
+        </div>
+      `;
+    } else {
+      progressHtml = `<div class="mp-maxed"><b>${mageRank.name}</b>Sommet atteint · Légende vivante</div>`;
+    }
+
     const card = document.createElement("div");
     card.className = "arc-card";
     card.dataset.type = def.type;
     card.dataset.id = def.id;
 
-    const isPos = isPositionsAccount(def.id);
-    const posCount = isPos && state.accounts[def.id] && Array.isArray(state.accounts[def.id].positions)
-      ? state.accounts[def.id].positions.length : 0;
-    const subLabel = isPos
-      ? `${posCount} position${posCount>1?"s":""} · ${def.name}`
-      : def.name;
+    const subtitle = isPos ? `${def.title} · ${posCount} position${posCount>1?"s":""}` : def.title;
 
     card.innerHTML = `
       <button class="arc-edit" title="${isPos?'Gérer positions':'Modifier'}">${isPos?'⌬':'✎'}</button>
-      <div class="arc-head">
-        <div class="arc-rune">${def.icon}</div>
-        <div class="arc-label">
-          <div class="magic-name">${def.magic}</div>
-          <div class="account-name">${subLabel}</div>
+      <div class="mage-head">
+        <div class="mage-portrait">
+          ${mageSvg(def.type, color)}
+          <div class="rank-badge" title="Rang ${mageRank.sym}">${mageRank.sym}</div>
+        </div>
+        <div class="mage-identity">
+          <div class="mage-name-row">
+            <div class="mage-name" data-mage-id="${def.id}" title="Cliquer pour renommer">${mageName}</div>
+          </div>
+          <div class="mage-title">${subtitle}</div>
+          <div class="mage-magic">${def.magic}</div>
+        </div>
+        <div class="mage-stat">
+          <div class="mage-val">${fmt(v)}<span class="cur">€</span></div>
+          <div class="mage-share"><span class="pct">${share.toFixed(1)}%</span> guilde</div>
         </div>
       </div>
-      <div class="arc-value">${fmt(v)}<span class="cur">€</span></div>
-      <div class="arc-share"><span class="pct">${share.toFixed(1)}%</span> · Part du trésor</div>
-      <div class="arc-bar"><div class="arc-bar-fill" style="width:${barWidth}%"></div></div>
+      <div class="mage-progress">
+        ${progressHtml}
+      </div>
     `;
+
+    // Name click to rename
+    const nameEl = card.querySelector(".mage-name");
+    nameEl.addEventListener("click", e => {
+      e.stopPropagation();
+      const newName = prompt(`Nom du mage de ${def.magic} :`, mageName);
+      if(newName !== null){
+        if(!state.mageNames) state.mageNames = {};
+        state.mageNames[def.id] = newName.trim();
+        saveState().then(renderAll);
+      }
+    });
+
+    // Card click to open edit / positions
     card.addEventListener("click", e => {
       if(isPositionsAccount(def.id)){
         openPositions(def.id);
@@ -1500,27 +1772,44 @@ function renderArcanes(){
         openEdit(def.id);
       }
     });
+
     grid.appendChild(card);
   });
 }
 
+// Legacy names kept as aliases for existing callers
+function renderTreasury(){ renderGuildMaster(); }
+function renderRank(){ /* merged into renderGuildMaster */ }
+function renderArcanes(){ renderMages(); }
+
 function renderLadder(){
-  const total = getTotal();
-  const {current} = getRank(total);
   const list = document.getElementById("ladderList");
   list.innerHTML = "";
-  RANKS.forEach((r,i) => {
+
+  // Sort mages by value descending
+  const mages = ACCOUNT_DEFS.map(def => ({
+    def,
+    value: getAccountValue(def.id),
+    rank: getRank(getAccountValue(def.id)),
+  })).sort((a,b) => b.value - a.value);
+
+  const colorMap = {
+    savings:"#c9a04a", degiro:"#7dd3fc", common:"#f472b6",
+    personal:"#a855f7", crypto:"#ff6b35", polymarket:"#2dd4bf",
+  };
+
+  mages.forEach((m, idx) => {
+    const color = colorMap[m.def.type];
+    const isLeader = idx === 0 && m.value > 0;
     const row = document.createElement("div");
-    const achieved = total >= r.min;
-    const isCurrent = r.sym === current.sym;
-    row.className = "ladder-row" + (achieved ? " achieved" : "") + (isCurrent ? " current" : "");
+    row.className = "ladder-row" + (m.value > 0 ? " achieved" : "") + (isLeader ? " current" : "");
     row.innerHTML = `
-      <div class="sym" style="color:${r.color}">${r.sym}</div>
+      <div class="sym" style="color:${color};font-size:18px;filter:none;opacity:1">${m.rank.current.sym}</div>
       <div>
-        <div class="name">${r.name}</div>
-        <div class="arc">${r.arc}</div>
+        <div class="name">${getMageName(m.def.id)}</div>
+        <div class="arc">${m.rank.current.name} · ${m.def.magic}</div>
       </div>
-      <div class="tier">${fmtCompact(r.min)} €</div>
+      <div class="tier">${fmtCompact(m.value)} €</div>
     `;
     list.appendChild(row);
   });
@@ -1535,7 +1824,7 @@ function renderQuests(){
     const gap = next.min - total;
     const prog = (total - current.min) / (next.min - current.min);
     quests.push({
-      type: "Quête de Rang",
+      type: "Quête de Guild Master",
       title: `Atteindre ${next.name} (${next.sym})`,
       progress: Math.max(0, Math.min(1, prog)),
       foot: `${fmt(gap)} € restants`,
@@ -1553,13 +1842,13 @@ function renderQuests(){
     done: total >= state.goal
   });
 
-  // Diversification quest
+  // Mobilization quest
   const nonZero = ACCOUNT_DEFS.filter(def => getAccountValue(def.id) > 0).length;
   quests.push({
-    type: "Quête d'Équilibre",
-    title: `Activer les six arcanes (${nonZero}/6)`,
+    type: "Quête de Mobilisation",
+    title: `Activer les six mages (${nonZero}/6)`,
     progress: nonZero / 6,
-    foot: nonZero === 6 ? "Tous les arcanes actifs" : `${6-nonZero} arcane(s) à éveiller`,
+    foot: nonZero === 6 ? "Tous les mages à l'œuvre" : `${6-nonZero} mage(s) à recruter`,
     done: nonZero === 6
   });
 
@@ -1838,6 +2127,17 @@ function setupGuildNameEdit(){
       saveState().then(renderAll);
     }
   });
+
+  const m = document.getElementById("masterName");
+  if(m){
+    m.addEventListener("click", () => {
+      const newName = prompt("Ton nom de Guild Master :", getMasterName());
+      if(newName !== null){
+        state.guildMasterName = newName.trim();
+        saveState().then(renderAll);
+      }
+    });
+  }
 }
 
 /* ---------- Positions management (Degiro) ---------- */
