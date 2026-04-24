@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/js-sha3@0.9.3/build/sha3.min.js"></script>
+<script src="common.js"></script>
 <style>
   :root{
     --obsidian:#07070b;
@@ -1214,6 +1215,10 @@
       <h1 id="guildName" class="editable">Guilde du <span>Mille Royaume</span></h1>
     </div>
     <div class="banner-right">
+      <a class="ctrl-btn" href="tournament.html" id="btnTournament" style="text-decoration:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+        Tournoi
+      </a>
       <button class="ctrl-btn" id="btnSettings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Conseil
@@ -2610,6 +2615,16 @@ function renderAll(){
   renderLadder();
   renderQuests();
   renderChart();
+  // Expose dashboard snapshot for tournament.html (non-sensitive: just total + name)
+  try {
+    if(window.GDCommon && typeof window.GDCommon.writeSnapshot === "function"){
+      window.GDCommon.writeSnapshot({
+        total: getTotal(),
+        guildName: state.guildName,
+        guildMasterName: state.guildMasterName,
+      });
+    }
+  } catch(e){ /* non-critical */ }
 }
 
 /* ---------- Interactions ---------- */
@@ -2741,6 +2756,12 @@ async function saveSettings(){
   state.guildName = name;
   state.goal = goal;
   state.proxyUrl = proxy;
+  // Mirror to shared LS for tournament.html access (via common.js)
+  try {
+    if(window.GDCommon && typeof window.GDCommon.setProxyUrl === "function"){
+      window.GDCommon.setProxyUrl(proxy);
+    }
+  } catch(e){}
   state.twelveDataKey = twelveKey;
   if(!state.wallets) state.wallets = {};
   state.wallets.polymarket = pmWallet;
@@ -3256,6 +3277,13 @@ async function refreshAllPrices(){
 
 /* ---------- Boot ---------- */
 function boot(){
+  // Mirror proxy URL to shared LS for tournament.html
+  try {
+    if(window.GDCommon && state.proxyUrl){
+      window.GDCommon.setProxyUrl(state.proxyUrl);
+    }
+  } catch(e){}
+
   // Record today's chronicle point on launch
   autoRecordChronicle().then(() => {
     renderAll();
