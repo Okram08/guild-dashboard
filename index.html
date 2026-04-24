@@ -1667,25 +1667,28 @@ async function getUsdEurRate(){
 /* Fetch USDC balance on Polygon for a given address (Polymarket cash) */
 async function fetchPolygonUsdcBalance(address){
   const addr = address.toLowerCase().replace("0x","");
-  // balanceOf(address) selector + 32-byte padded address
   const callData = "0x70a08231" + addr.padStart(64, "0");
-  // Polymarket uses bridged USDC.e (legacy) or native USDC (newer)
   const USDC_CONTRACTS = [
-    "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC.e bridged
+    "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC.e bridged (Polymarket legacy)
     "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Native USDC
   ];
+  // Current working public Polygon RPCs (2026)
   const RPCS = [
-    "https://polygon-rpc.com",
-    "https://polygon.llamarpc.com",
+    "https://polygon.drpc.org",
+    "https://polygon-bor-rpc.publicnode.com",
     "https://rpc.ankr.com/polygon",
+    "https://1rpc.io/matic",
   ];
+  const proxy = (state.proxyUrl || "").trim();
   let total = 0;
   for(const contract of USDC_CONTRACTS){
     for(const rpc of RPCS){
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 10000);
-        const res = await fetch(rpc, {
+        // Route through Worker proxy if configured (bypasses CORS + rate limits)
+        const url = proxy ? proxy + encodeURIComponent(rpc) : rpc;
+        const res = await fetch(url, {
           method: "POST",
           headers: {"Content-Type":"application/json"},
           body: JSON.stringify({
@@ -1700,9 +1703,9 @@ async function fetchPolygonUsdcBalance(address){
         if(j.error) continue;
         const hex = j.result;
         if(!hex || hex === "0x") break;
-        const balance = parseInt(hex, 16) / 1e6; // USDC has 6 decimals
+        const balance = parseInt(hex, 16) / 1e6;
         total += balance;
-        break; // got it for this contract, try next contract
+        break;
       } catch(e){
         // try next RPC
       }
