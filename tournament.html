@@ -411,6 +411,7 @@
   <div class="intro-info" id="introInfo">Chargement…</div>
   <div class="intro-actions">
     <button onclick="resetTournament()" title="Tout remettre a zero">♻ Réinitialiser</button>
+    <button onclick="promptDCA()" title="Injecter un DCA dans toutes les guildes" style="color:#86efac;border-color:rgba(134,239,172,0.35);">💰 DCA</button>
     <button onclick="refreshAll()">🔄 Actualiser tout</button>
     <button class="primary" onclick="openForge()">⚒ Forger une guilde</button>
   </div>
@@ -507,6 +508,8 @@ const DEFAULT_STATE = {
   startCapital: 20000,
   userStartValue: null,
   userValueHistory: [],
+  userInjections: [],      // List of user DCAs + initial: [{t, amount}]
+  lastDCAAmount: 900,      // Remembered for next DCA
   lastRefresh: null,
 };
 
@@ -520,10 +523,35 @@ function loadState(){
     const raw = localStorage.getItem(LS_STATE);
     if(raw){
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_STATE, ...parsed };
+      const merged = { ...DEFAULT_STATE, ...parsed };
+      // Migration: legacy guilds without injections[]
+      if(Array.isArray(merged.rivalGuilds)){
+        for(const g of merged.rivalGuilds){
+          if(!Array.isArray(g.injections)){
+            const prices = {};
+            for(const a of (g.assets || [])){
+              prices[a.ticker] = a.startPrice || a.lastPrice || 1;
+            }
+            g.injections = [{
+              t: g.createdAt || Date.now(),
+              amount: merged.startCapital || 20000,
+              prices,
+            }];
+          }
+        }
+      }
+      // Migration: ensure userInjections has the initial
+      if(!Array.isArray(merged.userInjections) || merged.userInjections.length === 0){
+        if(merged.userStartValue){
+          merged.userInjections = [{ t: merged.startDate ? new Date(merged.startDate).getTime() : Date.now(), amount: merged.userStartValue }];
+        } else {
+          merged.userInjections = [];
+        }
+      }
+      return merged;
     }
   } catch(e){ console.warn("loadState fail", e); }
-  return { ...DEFAULT_STATE };
+  return { ...DEFAULT_STATE, userInjections: [] };
 }
 function saveState(){
   try { localStorage.setItem(LS_STATE, JSON.stringify(state)); }
@@ -536,17 +564,19 @@ async function initTournament(){
     // First-time setup
     state.startDate = new Date().toISOString().slice(0,10);
     state.userValueHistory = [];
+    state.userInjections = [];
 
     const snap = GDCommon.readSnapshot();
     if(snap && snap.total && snap.total >= 1000){
       // Anchor tournament capital to user's REAL current total
-      // → all rivals start at same value as user, comparison is 1:1
       state.startCapital = Math.round(snap.total);
       state.userStartValue = snap.total;
       state.userValueHistory.push({ t: Date.now(), v: snap.total });
+      state.userInjections.push({ t: Date.now(), amount: snap.total });
     } else {
-      // No snapshot or too low: fallback to default 20k
+      // No snapshot: fallback
       state.startCapital = 20000;
+      state.userInjections.push({ t: Date.now(), amount: 20000 });
     }
 
     // Create presets
@@ -571,7 +601,9 @@ async function createRivalGuild(name, theme, icon, assetsInput, announce=true){
   const totalWeight = assetsInput.reduce((s,a) => s + (parseFloat(a.weight) || 0), 0);
   if(totalWeight <= 0) throw new Error("Poids total invalide");
 
+  // Fetch current price for each asset (this is the starting price)
   const assets = [];
+  const currentPrices = {};
   const errors = [];
   for(const a of assetsInput){
     const ticker = (a.ticker || "").trim();
@@ -581,11 +613,11 @@ async function createRivalGuild(name, theme, icon, assetsInput, announce=true){
       assets.push({
         ticker,
         weight: ((parseFloat(a.weight) || 0) / totalWeight) * 100,
-        startPrice: r.price,
         startCurrency: r.currency,
         lastPrice: r.price,
         lastFetch: Date.now(),
       });
+      currentPrices[ticker] = r.price;
     } catch(e){
       errors.push(`${ticker}: ${e.message}`);
     }
@@ -594,6 +626,10 @@ async function createRivalGuild(name, theme, icon, assetsInput, announce=true){
     throw new Error("Aucun ticker valide. " + errors.join(" | "));
   }
 
+  // Initial injection: total of all user injections so far
+  //   (so new guild starts from the amount currently invested in user's tournament)
+  const currentInvested = (state.userInjections || []).reduce((s,i) => s + i.amount, 0) || state.startCapital;
+
   const guild = {
     id: "rg_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
     name: name.trim(),
@@ -601,8 +637,14 @@ async function createRivalGuild(name, theme, icon, assetsInput, announce=true){
     icon: icon || "✦",
     createdAt: Date.now(),
     assets,
-    history: [{ t: Date.now(), v: state.startCapital }],
-    lastValue: state.startCapital,
+    injections: [{
+      t: Date.now(),
+      amount: currentInvested,
+      prices: currentPrices,
+    }],
+    history: [{ t: Date.now(), v: currentInvested, i: currentInvested }],
+    lastValue: currentInvested,
+    lastInvested: currentInvested,
     lastFetch: Date.now(),
   };
   state.rivalGuilds.push(guild);
@@ -616,25 +658,42 @@ async function createRivalGuild(name, theme, icon, assetsInput, announce=true){
 
 /* -------- Refresh -------- */
 async function refreshRivalGuild(guild){
-  let weightedPerf = 0;
-  let fetchErrors = 0;
+  // Fetch current prices for all tickers in this guild
+  const currentPrices = {};
+  const priceErrors = [];
   for(const asset of guild.assets){
     try {
       const r = await GDCommon.fetchYahooPrice(asset.ticker);
+      currentPrices[asset.ticker] = r.price;
       asset.lastPrice = r.price;
       asset.lastFetch = Date.now();
-      const perf = (asset.lastPrice / asset.startPrice) - 1;
-      weightedPerf += (asset.weight / 100) * perf;
     } catch(e){
       console.warn("Refresh fail", asset.ticker, e.message);
-      fetchErrors++;
-      // Use last known price for this asset
-      const perf = ((asset.lastPrice || asset.startPrice) / asset.startPrice) - 1;
-      weightedPerf += (asset.weight / 100) * perf;
+      priceErrors.push(asset.ticker);
+      // Fallback: use last known price
+      currentPrices[asset.ticker] = asset.lastPrice || 1;
     }
   }
-  const newValue = state.startCapital * (1 + weightedPerf);
-  guild.lastValue = newValue;
+
+  // Compute total value across ALL injections (DCA lots)
+  // For each injection: value_now = amount × Σ (weight × priceNow / priceAtInjection)
+  let totalValue = 0;
+  let totalInvested = 0;
+  for(const inj of guild.injections){
+    totalInvested += inj.amount;
+    let injValue = 0;
+    for(const asset of guild.assets){
+      const pThen = inj.prices[asset.ticker];
+      const pNow = currentPrices[asset.ticker];
+      if(!pThen || !pNow) continue;
+      const weight = asset.weight / 100;
+      injValue += (inj.amount * weight) * (pNow / pThen);
+    }
+    totalValue += injValue;
+  }
+
+  guild.lastValue = totalValue;
+  guild.lastInvested = totalInvested;
   guild.lastFetch = Date.now();
 
   // Daily history upsert
@@ -642,13 +701,14 @@ async function refreshRivalGuild(guild){
   const last = guild.history[guild.history.length - 1];
   const lastDay = last ? new Date(last.t).toISOString().slice(0,10) : null;
   if(lastDay === today){
-    last.v = newValue;
+    last.v = totalValue;
+    last.i = totalInvested;
     last.t = Date.now();
   } else {
-    guild.history.push({ t: Date.now(), v: newValue });
+    guild.history.push({ t: Date.now(), v: totalValue, i: totalInvested });
     if(guild.history.length > 400) guild.history.shift();
   }
-  return { value: newValue, errors: fetchErrors };
+  return { value: totalValue, invested: totalInvested, errors: priceErrors };
 }
 
 async function refreshUserGuild(){
@@ -670,6 +730,83 @@ async function refreshUserGuild(){
     if(state.userValueHistory.length > 400) state.userValueHistory.shift();
   }
   return snap;
+}
+
+/* -------- DCA (Dollar Cost Averaging) injection -------- */
+async function applyDCA(amount){
+  if(!amount || amount <= 0) throw new Error("Montant invalide");
+  if(!state.rivalGuilds || state.rivalGuilds.length === 0){
+    throw new Error("Pas de guilde en lice");
+  }
+
+  // Fetch current prices for all unique tickers across all guilds
+  const allTickers = new Set();
+  for(const g of state.rivalGuilds){
+    for(const a of g.assets) allTickers.add(a.ticker);
+  }
+  GDCommon.toast(`📊 DCA ${GDCommon.fmt(amount)}€ en cours (${allTickers.size} prix)…`);
+
+  const currentPrices = {};
+  const errors = [];
+  for(const ticker of allTickers){
+    try {
+      const r = await GDCommon.fetchYahooPrice(ticker);
+      currentPrices[ticker] = r.price;
+    } catch(e){
+      errors.push(`${ticker}: ${e.message}`);
+      console.warn("DCA price fail", ticker, e.message);
+    }
+  }
+
+  // Inject into each rival guild at current prices
+  const t = Date.now();
+  let injected = 0;
+  for(const g of state.rivalGuilds){
+    const prices = {};
+    let ok = true;
+    for(const a of g.assets){
+      const p = currentPrices[a.ticker] || a.lastPrice;
+      if(!p){ ok = false; break; }
+      prices[a.ticker] = p;
+    }
+    if(!ok){
+      console.warn("Skipping DCA for", g.name, "- missing prices");
+      continue;
+    }
+    g.injections.push({ t, amount, prices });
+    injected++;
+  }
+
+  // Track user DCA (user's real wallet: they actually added this money)
+  state.userInjections.push({ t, amount });
+  state.lastDCAAmount = amount;
+
+  saveState();
+  await refreshAll();
+
+  const errMsg = errors.length ? ` · ⚠ ${errors.length} erreur(s) prix` : "";
+  GDCommon.toast(`✓ DCA ${GDCommon.fmt(amount)}€ · ${injected}/${state.rivalGuilds.length} guildes${errMsg}`, 4000);
+}
+
+async function promptDCA(){
+  const last = state.lastDCAAmount || 900;
+  const raw = prompt(
+    `💰 Dollar Cost Averaging\n\n` +
+    `Montant mensuel à injecter dans TOUTES les guildes ?\n` +
+    `(en euros · sera aussi compté comme apport dans ta vraie guilde)`,
+    last
+  );
+  if(raw === null) return;
+  const amount = parseFloat(String(raw).replace(",", "."));
+  if(!amount || amount <= 0){
+    GDCommon.toast("⚠ Montant invalide");
+    return;
+  }
+  try {
+    await applyDCA(amount);
+  } catch(e){
+    GDCommon.toast("⚠ " + e.message, 5000);
+  }
 }
 
 async function refreshAll(){
@@ -699,15 +836,21 @@ async function refreshAll(){
 }
 
 /* -------- Rendering -------- */
+function totalUserInvested(){
+  return (state.userInjections || []).reduce((s,i) => s + i.amount, 0);
+}
+
 function computeUserTournamentValue(){
   const snap = GDCommon.readSnapshot();
-  if(!snap || !state.userStartValue || state.userStartValue <= 0){
+  const invested = totalUserInvested();
+  if(!snap || invested <= 0){
     return null;
   }
   const currentTotal = snap.total || 0;
-  const perf = (currentTotal / state.userStartValue) - 1;
+  const perf = (currentTotal - invested) / invested;
   return {
-    value: state.startCapital * (1 + perf),
+    value: currentTotal,        // user's REAL current total
+    invested,                   // total user has invested (sum of DCAs + initial)
     performance: perf,
     raw: currentTotal,
     snapshot: snap,
@@ -718,15 +861,19 @@ function buildRankingRows(){
   const rows = [];
   // Rival guilds
   for(const g of state.rivalGuilds){
+    const invested = g.lastInvested || (g.injections || []).reduce((s,i) => s + i.amount, 0) || state.startCapital;
+    const value = g.lastValue || invested;
     rows.push({
       type: "rival",
       id: g.id,
       name: g.name,
       icon: g.icon,
       theme: g.theme,
-      value: g.lastValue || state.startCapital,
-      performance: ((g.lastValue || state.startCapital) / state.startCapital) - 1,
+      value,
+      invested,
+      performance: invested > 0 ? (value - invested) / invested : 0,
       assetsLabel: g.assets.map(a => `${a.ticker} ${Math.round(a.weight)}%`).join(" · "),
+      dcaCount: Math.max(0, (g.injections || []).length - 1),
       raw: g,
     });
   }
@@ -734,6 +881,7 @@ function buildRankingRows(){
   const user = computeUserTournamentValue();
   if(user){
     const snap = user.snapshot;
+    const dcaCount = Math.max(0, (state.userInjections || []).length - 1);
     rows.push({
       type: "user",
       id: "user",
@@ -741,8 +889,10 @@ function buildRankingRows(){
       icon: "⚜",
       theme: "gold",
       value: user.value,
+      invested: user.invested,
       performance: user.performance,
-      assetsLabel: `Réel : ${GDCommon.fmt(user.raw)} € (départ ${GDCommon.fmt(state.userStartValue)} €)`,
+      assetsLabel: "Valeur réelle · capital injecté " + GDCommon.fmt(user.invested) + " €",
+      dcaCount,
       raw: { snapshot: snap, startValue: state.userStartValue },
     });
   } else {
@@ -753,8 +903,10 @@ function buildRankingRows(){
       icon: "⚜",
       theme: "shadow",
       value: state.startCapital,
+      invested: state.startCapital,
       performance: 0,
       assetsLabel: "Ouvre le dashboard au moins une fois pour activer le suivi",
+      dcaCount: 0,
       raw: null,
     });
   }
@@ -779,6 +931,7 @@ function renderRanking(){
     const isYou = r.type === "user" || r.type === "user-missing";
     const pc = perfClass(r.performance);
     const pos = idx + 1;
+    const dcaBadge = r.dcaCount > 0 ? `<span style="color:var(--ink-dim);font-size:11px;margin-left:8px;">💰 ${r.dcaCount} DCA</span>` : "";
     const actions = isYou ? "" : `
       <div class="guild-actions">
         <button class="icon-btn" onclick="editGuild('${r.id}')" title="Modifier">✎</button>
@@ -791,6 +944,7 @@ function renderRanking(){
           <div class="guild-name ${isYou ? 'you' : ''}">
             <span class="guild-icon">${r.icon}</span>
             ${r.name}
+            ${dcaBadge}
           </div>
           <div class="guild-assets">${r.assetsLabel}</div>
         </div>
@@ -822,14 +976,10 @@ function renderChart(){
     });
   }
   // User
-  if(state.userValueHistory && state.userValueHistory.length > 0 && state.userStartValue){
-    const userTourneyData = state.userValueHistory.map(h => ({
-      x: h.t,
-      y: state.startCapital * (h.v / state.userStartValue),
-    }));
+  if(state.userValueHistory && state.userValueHistory.length > 0){
     datasets.push({
       label: "Votre Guilde",
-      data: userTourneyData,
+      data: state.userValueHistory.map(h => ({ x: h.t, y: h.v })),
       borderColor: "#fbbf24",
       backgroundColor: "#fbbf2415",
       tension: 0.25,
@@ -893,12 +1043,14 @@ function renderChart(){
 function renderIntro(){
   const startDate = state.startDate || new Date().toISOString().slice(0,10);
   const formattedStart = new Date(startDate).toLocaleDateString("fr-FR");
-  const capital = GDCommon.fmt(state.startCapital);
+  const totalInvested = totalUserInvested();
+  const dcaCount = Math.max(0, (state.userInjections || []).length - 1);
+  const dcaInfo = dcaCount > 0 ? ` · <b>${dcaCount}</b> DCA effectué${dcaCount > 1 ? "s" : ""}` : "";
   const lastRefresh = state.lastRefresh
     ? new Date(state.lastRefresh).toLocaleString("fr-FR")
     : "jamais";
   document.getElementById("introInfo").innerHTML =
-    `Débuté le <b>${formattedStart}</b> · Capital de base : <b>${capital} €</b> · <span style="font-size:12px;">Dernier refresh : ${lastRefresh}</span>`;
+    `Débuté le <b>${formattedStart}</b> · Capital investi : <b>${GDCommon.fmt(totalInvested)} €</b>${dcaInfo} · <span style="font-size:12px;">Dernier refresh : ${lastRefresh}</span>`;
 
   document.getElementById("tournamentMeta").textContent =
     `${state.rivalGuilds.length} guilde${state.rivalGuilds.length > 1 ? "s" : ""} en lice`;
@@ -908,10 +1060,9 @@ function render(){
   renderIntro();
   renderRanking();
   renderChart();
-  // Update chart section title with dynamic base capital
   const titleEl = document.getElementById("chartSectionTitle");
   if(titleEl){
-    titleEl.textContent = `Courbes de performance · base ${GDCommon.fmt(state.startCapital)} €`;
+    titleEl.textContent = `Courbes de valeur · capital investi ${GDCommon.fmt(totalUserInvested())} €`;
   }
 }
 
