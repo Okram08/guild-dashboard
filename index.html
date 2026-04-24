@@ -939,6 +939,11 @@
       <label>Objectif final (€)</label>
       <input type="number" id="setGoal" step="10000" placeholder="1000000">
     </div>
+    <div class="field">
+      <label>Proxy CORS (pour Stooq)</label>
+      <input type="text" id="setProxy" placeholder="https://api.allorigins.win/raw?url=">
+      <div class="hint">Alternative si le défaut échoue : <code style="color:var(--gold-pale)">https://corsproxy.io/?url=</code></div>
+    </div>
     <div class="scroll-actions">
       <button id="setCancel">Fermer</button>
       <button class="primary" id="setSave">Valider</button>
@@ -1174,6 +1179,7 @@ const DEFAULT_STATE = {
   accounts: Object.fromEntries(ACCOUNT_DEFS.map(a => [a.id, 0])),
   lastUpdate: null,
   prevTotal: 0,
+  proxyUrl: "https://api.allorigins.win/raw?url=",
 };
 
 /* ---------- Crypto helpers (Web Crypto API) ---------- */
@@ -1739,13 +1745,16 @@ function toast(msg, cls=""){
 function openSettings(){
   document.getElementById("setGuildName").value = state.guildName;
   document.getElementById("setGoal").value = state.goal;
+  document.getElementById("setProxy").value = state.proxyUrl || "https://api.allorigins.win/raw?url=";
   document.getElementById("settingsVeil").classList.add("show");
 }
 async function saveSettings(){
   const name = document.getElementById("setGuildName").value.trim() || "Guilde du Mille Royaume";
   const goal = parseFloat(document.getElementById("setGoal").value) || 1000000;
+  const proxy = document.getElementById("setProxy").value.trim() || "https://api.allorigins.win/raw?url=";
   state.guildName = name;
   state.goal = goal;
+  state.proxyUrl = proxy;
   await saveState();
   document.getElementById("settingsVeil").classList.remove("show");
   renderAll();
@@ -1816,18 +1825,28 @@ function uid(){ return "p_" + Date.now().toString(36) + Math.random().toString(3
 
 async function fetchStooqPrice(ticker){
   // Returns { price, date, time } or throws
+  // Stooq doesn't send CORS headers, so we route through a public CORS proxy.
   const clean = ticker.trim().toLowerCase();
-  const url = `https://stooq.com/q/l/?s=${encodeURIComponent(clean)}&f=sd2t2c&h&e=csv`;
-  const res = await fetch(url, {cache:"no-store"});
-  if(!res.ok) throw new Error("HTTP "+res.status);
+  const stooqUrl = `https://stooq.com/q/l/?s=${encodeURIComponent(clean)}&f=sd2t2c&h&e=csv`;
+  const proxy = (state.proxyUrl && state.proxyUrl.trim()) || "https://api.allorigins.win/raw?url=";
+  const url = proxy + encodeURIComponent(stooqUrl);
+
+  let res;
+  try {
+    res = await fetch(url, {cache:"no-store"});
+  } catch(e){
+    throw new Error("Proxy CORS inaccessible");
+  }
+  if(!res.ok) throw new Error("Proxy HTTP "+res.status);
   const text = (await res.text()).trim();
+  if(!text) throw new Error("Réponse vide");
   const lines = text.split(/\r?\n/);
-  if(lines.length < 2) throw new Error("Réponse vide");
+  if(lines.length < 2) throw new Error("Format invalide");
   // CSV header: Symbol,Date,Time,Close
   const cols = lines[1].split(",");
-  if(cols.length < 4) throw new Error("Format invalide");
+  if(cols.length < 4) throw new Error("CSV malformé");
   const close = cols[3];
-  if(close === "N/D" || close === "" || close == null) throw new Error("Ticker non trouvé");
+  if(close === "N/D" || close === "" || close == null) throw new Error("Ticker inconnu sur Stooq");
   const price = parseFloat(close);
   if(isNaN(price) || price <= 0) throw new Error("Cours invalide");
   return { price, date: cols[1], time: cols[2] };
@@ -2037,12 +2056,12 @@ async function refreshAllPrices(){
   btn.textContent = "🔄 ...";
 
   let ok = 0, fail = 0;
-  const failedTickers = [];
+  const failedDetails = [];
 
   const prevTotal = getTotal();
   const prevRank = getRank(prevTotal).current;
 
-  // Fetch sequentially to avoid rate limits / CORS issues
+  // Fetch sequentially to avoid rate limits / proxy throttling
   for(const p of positions){
     try {
       const r = await fetchStooqPrice(p.ticker);
@@ -2052,8 +2071,8 @@ async function refreshAllPrices(){
       ok++;
     } catch(err){
       fail++;
-      failedTickers.push(p.ticker);
-      console.warn("Stooq fail", p.ticker, err.message);
+      failedDetails.push({ticker: p.ticker, err: err.message || "erreur"});
+      console.warn("Stooq fail", p.ticker, err);
     }
   }
 
@@ -2065,9 +2084,16 @@ async function refreshAllPrices(){
   btn.disabled = false;
   btn.textContent = "🔄 Cours";
 
-  if(ok > 0 && fail === 0) toast(`✓ ${ok} cours actualisé${ok>1?"s":""}`, "epic");
-  else if(ok > 0 && fail > 0) toast(`${ok} ok · ${fail} échec (${failedTickers.join(", ")})`);
-  else toast(`Échec Stooq · Utilise le cours manuel (${failedTickers.join(", ")})`);
+  if(ok > 0 && fail === 0){
+    toast(`✓ ${ok} cours actualisé${ok>1?"s":""}`, "epic");
+  } else if(ok > 0 && fail > 0){
+    const failStr = failedDetails.map(f => f.ticker).join(", ");
+    toast(`${ok} ok · ${fail} échec (${failStr})`);
+  } else {
+    // All failed - show first error for debugging
+    const first = failedDetails[0];
+    toast(`${first.ticker} : ${first.err}`);
+  }
 
   const newTotal = getTotal();
   const newRank = getRank(newTotal).current;
