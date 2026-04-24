@@ -410,6 +410,7 @@
 <section class="intro">
   <div class="intro-info" id="introInfo">Chargement…</div>
   <div class="intro-actions">
+    <button onclick="resetTournament()" title="Tout remettre a zero">♻ Réinitialiser</button>
     <button onclick="refreshAll()">🔄 Actualiser tout</button>
     <button class="primary" onclick="openForge()">⚒ Forger une guilde</button>
   </div>
@@ -420,7 +421,7 @@
   <div class="empty-state">Invocation des guildes rivales…</div>
 </section>
 
-<div class="section-title">Courbes de performance · base 20 000 €</div>
+<div class="section-title" id="chartSectionTitle">Courbes de performance</div>
 <section class="chart-wrap">
   <canvas id="comparisonChart"></canvas>
   <div id="chartEmpty" class="chart-empty" style="display:none;">Pas encore d'historique à afficher. Actualise pour lancer le suivi.</div>
@@ -537,9 +538,15 @@ async function initTournament(){
     state.userValueHistory = [];
 
     const snap = GDCommon.readSnapshot();
-    if(snap && snap.total > 0){
+    if(snap && snap.total && snap.total >= 1000){
+      // Anchor tournament capital to user's REAL current total
+      // → all rivals start at same value as user, comparison is 1:1
+      state.startCapital = Math.round(snap.total);
       state.userStartValue = snap.total;
       state.userValueHistory.push({ t: Date.now(), v: snap.total });
+    } else {
+      // No snapshot or too low: fallback to default 20k
+      state.startCapital = 20000;
     }
 
     // Create presets
@@ -891,7 +898,7 @@ function renderIntro(){
     ? new Date(state.lastRefresh).toLocaleString("fr-FR")
     : "jamais";
   document.getElementById("introInfo").innerHTML =
-    `Débuté le <b>${formattedStart}</b> · Capital virtuel : <b>${capital} €</b> · <span style="font-size:12px;">Dernier refresh : ${lastRefresh}</span>`;
+    `Débuté le <b>${formattedStart}</b> · Capital de base : <b>${capital} €</b> · <span style="font-size:12px;">Dernier refresh : ${lastRefresh}</span>`;
 
   document.getElementById("tournamentMeta").textContent =
     `${state.rivalGuilds.length} guilde${state.rivalGuilds.length > 1 ? "s" : ""} en lice`;
@@ -901,6 +908,11 @@ function render(){
   renderIntro();
   renderRanking();
   renderChart();
+  // Update chart section title with dynamic base capital
+  const titleEl = document.getElementById("chartSectionTitle");
+  if(titleEl){
+    titleEl.textContent = `Courbes de performance · base ${GDCommon.fmt(state.startCapital)} €`;
+  }
 }
 
 /* -------- Forge modal -------- */
@@ -1000,6 +1012,24 @@ function deleteGuild(id){
   saveState();
   render();
   GDCommon.toast(`${g.icon} ${g.name} dissoute`);
+}
+
+async function resetTournament(){
+  const msg = `⚠ Réinitialiser le tournoi ?\n\n` +
+              `• Toutes les guildes rivales seront DISSOUTES (y compris celles que tu as créées)\n` +
+              `• L'historique des performances sera EFFACÉ\n` +
+              `• Le tournoi redémarrera aujourd'hui avec ta valeur actuelle comme capital de base\n` +
+              `• Les 3 guildes preset (Or, S&P 500, BTC) seront recréées\n\n` +
+              `Continuer ?`;
+  if(!confirm(msg)) return;
+  try {
+    localStorage.removeItem(LS_STATE);
+  } catch(e){}
+  state = { ...DEFAULT_STATE };
+  await initTournament();
+  render();
+  // Force refresh to get current prices
+  setTimeout(() => refreshAll(), 300);
 }
 
 /* -------- Boot -------- */
