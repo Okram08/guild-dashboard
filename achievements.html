@@ -832,16 +832,16 @@ function readAllSources(){
   // The main dashboard writes only the snapshot publicly. Account details not exposed.
   // Chronicle is stored in a separate key; it might be encrypted though.
   try {
-    const raw = localStorage.getItem("grimoire-chronicle-v1");
+    const raw = localStorage.getItem("guild_chronicle_v1");
     if(raw){
       const parsed = JSON.parse(raw);
-      // Chronicle may be encrypted; try to use if parseable as array
+      // Chronicle may be encrypted (object with ciphertext); accept only if raw array
       if(Array.isArray(parsed)) chronicle = parsed;
     }
   } catch(e){}
   // For main state accounts: we can't read encrypted. Try unencrypted first.
   try {
-    const raw = localStorage.getItem("grimoire-state-v1");
+    const raw = localStorage.getItem("guild_grimoire_v1");
     if(raw){
       try {
         const parsed = JSON.parse(raw);
