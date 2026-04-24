@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grimoire des Décisions · Mille Royaume</title>
+  <title>Tournoi des Guildes · Mille Royaume</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="common.js"></script>
 
   <style>
@@ -24,20 +25,15 @@
       --ink:           #f0e4c4;
       --ink-dim:       #a89878;
       --crimson:       #a03028;
+      --success:       #4ade80;
+      --danger:        #ef4444;
       --border:        rgba(212, 167, 68, 0.18);
-
-      --tag-apport:    #4ade80;
-      --tag-vente:     #ef4444;
-      --tag-rebalance: #3b82f6;
-      --tag-reflexion: #a855f7;
-      --tag-macro:     #06b6d4;
-      --tag-autre:     #9ca3af;
     }
 
     body {
       background:
         radial-gradient(ellipse at top, rgba(212, 167, 68, 0.06), transparent 60%),
-        radial-gradient(ellipse at bottom right, rgba(168, 85, 247, 0.05), transparent 55%),
+        radial-gradient(ellipse at bottom left, rgba(160, 48, 40, 0.08), transparent 55%),
         var(--bg-deep);
       color: var(--ink);
       font-family: 'EB Garamond', Georgia, serif;
@@ -46,14 +42,14 @@
       background-attachment: fixed;
     }
 
-    /* Header */
+    /* --- Header --- */
     header {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
       border-bottom: 1px solid var(--border);
       padding-bottom: 24px;
-      margin-bottom: 28px;
+      margin-bottom: 32px;
     }
     .back-link {
       color: var(--ink-dim);
@@ -65,6 +61,7 @@
       transition: color .2s;
     }
     .back-link:hover { color: var(--gold-hi); }
+
     h1 {
       font-family: 'UnifrakturCook', serif;
       font-weight: 700;
@@ -72,8 +69,8 @@
       color: var(--gold-hi);
       text-shadow: 0 0 30px rgba(251, 191, 36, 0.25);
       letter-spacing: 0.02em;
-      margin-top: 2px;
     }
+
     .header-sub {
       text-align: right;
       font-style: italic;
@@ -81,29 +78,22 @@
       font-size: 14px;
     }
 
-    /* Toolbar */
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-    }
-    .toolbar input[type="text"] {
-      flex: 1;
-      min-width: 200px;
+    /* --- Intro bar --- */
+    .intro {
       background: var(--bg-panel);
       border: 1px solid var(--border);
-      color: var(--ink);
-      padding: 10px 14px;
-      border-radius: 3px;
-      font-family: 'EB Garamond', serif;
-      font-size: 15px;
+      border-radius: 4px;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
     }
-    .toolbar input[type="text"]:focus {
-      outline: none;
-      border-color: var(--gold-soft);
-    }
+    .intro-info { font-size: 15px; color: var(--ink-dim); }
+    .intro-info b { color: var(--ink); font-weight: 500; }
+    .intro-actions { display: flex; gap: 10px; }
 
     button, .btn {
       font-family: 'Cinzel', serif;
@@ -128,155 +118,167 @@
       border-color: var(--gold);
       color: var(--gold-hi);
     }
-    button.primary:hover { background: rgba(212, 167, 68, 0.28); }
-
-    /* Tag pills */
-    .tag-filters {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 28px;
-      flex-wrap: wrap;
+    button.primary:hover {
+      background: rgba(212, 167, 68, 0.28);
     }
-    .tag-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 11px;
-      border-radius: 12px;
+
+    /* --- Ranking --- */
+    .section-title {
       font-family: 'Cinzel', serif;
-      font-size: 11px;
-      letter-spacing: 0.1em;
+      font-size: 13px;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--ink-dim);
-      cursor: pointer;
-      transition: all .2s;
-      font-weight: 500;
-    }
-    .tag-pill:hover {
-      background: rgba(255,255,255,0.05);
-      color: var(--ink);
-    }
-    .tag-pill.active {
-      color: var(--ink);
-      background: rgba(255,255,255,0.08);
-      border-color: currentColor;
-    }
-    .tag-pill .count {
-      opacity: 0.5;
-      font-size: 10px;
-    }
-
-    /* Month separator */
-    .month-sep {
-      font-family: 'UnifrakturCook', serif;
-      font-size: 22px;
       color: var(--gold);
-      margin: 32px 0 14px 0;
-      padding-bottom: 6px;
-      border-bottom: 1px solid var(--border);
-      letter-spacing: 0.02em;
-      opacity: 0.85;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
-    .month-sep:first-of-type { margin-top: 0; }
+    .section-title::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, var(--gold-soft), transparent);
+    }
 
-    /* Entry card */
-    .entry {
+    .ranking {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 40px;
+    }
+
+    .guild-card {
       background: var(--bg-panel);
       border: 1px solid var(--border);
-      border-left: 3px solid var(--tag-color, var(--gold));
+      border-left: 3px solid var(--theme-color, var(--gold));
       border-radius: 4px;
-      padding: 20px 24px;
-      margin-bottom: 12px;
+      padding: 18px 24px;
+      display: grid;
+      grid-template-columns: 60px 1fr auto auto auto;
+      gap: 20px;
+      align-items: center;
       transition: all .2s;
       position: relative;
+      overflow: hidden;
     }
-    .entry:hover {
+    .guild-card:hover {
       background: var(--bg-panel-hi);
-      border-color: rgba(212, 167, 68, 0.28);
+      border-color: rgba(212, 167, 68, 0.35);
     }
-    .entry-meta {
+    .guild-card.you {
+      border-left-width: 4px;
+      border-color: var(--gold);
+      background: linear-gradient(135deg, rgba(212, 167, 68, 0.1), var(--bg-panel));
+    }
+    .guild-card.you::before {
+      content: "⚜";
+      position: absolute;
+      right: 12px;
+      top: 10px;
+      color: var(--gold-hi);
+      font-size: 14px;
+      opacity: 0.4;
+    }
+
+    .rank-position {
+      font-family: 'UnifrakturCook', serif;
+      font-size: 28px;
+      color: var(--ink-dim);
+      text-align: center;
+    }
+    .guild-card.you .rank-position { color: var(--gold-hi); }
+    .rank-position.pos-1 { color: var(--gold-hi); font-size: 34px; }
+
+    .guild-main {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .guild-name {
+      font-family: 'Cinzel', serif;
+      font-weight: 500;
+      font-size: 16px;
+      color: var(--ink);
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .guild-icon {
+      font-size: 18px;
+      filter: drop-shadow(0 0 6px var(--theme-color, var(--gold)));
+    }
+    .guild-name.you { color: var(--gold-hi); }
+    .guild-assets {
+      font-style: italic;
       font-size: 13px;
       color: var(--ink-dim);
     }
-    .entry-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
+
+    .guild-value {
+      text-align: right;
       font-family: 'Cinzel', serif;
-      font-size: 10px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--tag-color, var(--gold));
+      font-size: 20px;
       font-weight: 500;
-    }
-    .entry-date {
-      font-style: italic;
-    }
-    .entry-snap {
-      margin-left: auto;
-      font-family: 'Cinzel', serif;
-      font-size: 12px;
-      color: var(--gold-hi);
-      opacity: 0.7;
-    }
-    .entry-title {
-      font-family: 'Cinzel', serif;
-      font-weight: 500;
-      font-size: 17px;
       color: var(--ink);
-      margin-bottom: 8px;
+      min-width: 110px;
     }
-    .entry-body {
+    .guild-value .currency {
+      font-size: 14px;
+      color: var(--ink-dim);
+      margin-left: 2px;
+    }
+
+    .guild-perf {
+      text-align: right;
+      min-width: 80px;
+      font-family: 'Cinzel', serif;
+      font-weight: 500;
       font-size: 15px;
-      line-height: 1.55;
-      color: var(--ink);
-      white-space: pre-wrap;
-      word-break: break-word;
     }
-    .entry-actions {
-      position: absolute;
-      top: 14px;
-      right: 14px;
+    .guild-perf.up { color: var(--success); }
+    .guild-perf.down { color: var(--danger); }
+    .guild-perf.flat { color: var(--ink-dim); }
+
+    .guild-actions {
       display: flex;
-      gap: 4px;
-      opacity: 0;
-      transition: opacity .2s;
+      gap: 6px;
     }
-    .entry:hover .entry-actions { opacity: 1; }
     .icon-btn {
-      width: 26px; height: 26px;
+      width: 28px; height: 28px;
       border: 1px solid var(--border);
-      background: rgba(10,6,17,0.6);
+      background: transparent;
       color: var(--ink-dim);
       border-radius: 3px;
       cursor: pointer;
-      font-size: 11px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       padding: 0;
+      font-size: 13px;
       transition: all .2s;
     }
     .icon-btn:hover { color: var(--gold-hi); border-color: var(--gold-soft); }
 
-    /* Empty state */
-    .empty-state {
+    /* --- Chart --- */
+    .chart-wrap {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 24px;
+      margin-bottom: 40px;
+      position: relative;
+      min-height: 340px;
+    }
+    .chart-wrap canvas { max-height: 400px; }
+    .chart-empty {
       text-align: center;
-      padding: 80px 20px;
       color: var(--ink-dim);
       font-style: italic;
-      font-size: 16px;
+      padding: 60px 20px;
     }
-    .empty-state svg { opacity: 0.4; margin-bottom: 20px; }
-    .empty-state .cta { margin-top: 20px; }
 
-    /* Modal */
+    /* --- Modal --- */
     .modal-veil {
       position: fixed;
       inset: 0;
@@ -294,23 +296,17 @@
       border: 1px solid var(--gold-soft);
       border-radius: 4px;
       padding: 32px 36px;
-      max-width: 640px;
+      max-width: 560px;
       width: 100%;
-      max-height: 92vh;
+      max-height: 90vh;
       overflow-y: auto;
     }
     .modal-body h2 {
       font-family: 'UnifrakturCook', serif;
       color: var(--gold-hi);
       font-size: 28px;
-      margin-bottom: 6px;
+      margin-bottom: 20px;
       font-weight: 700;
-    }
-    .modal-body .modal-sub {
-      font-size: 13px;
-      color: var(--ink-dim);
-      font-style: italic;
-      margin-bottom: 22px;
     }
     .field { margin-bottom: 16px; }
     .field label {
@@ -320,42 +316,40 @@
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: var(--gold);
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
-    .field input, .field textarea, .field select {
+    .field input, .field select {
       width: 100%;
       background: rgba(10, 6, 17, 0.6);
       border: 1px solid var(--border);
       color: var(--ink);
-      padding: 10px 12px;
+      padding: 9px 12px;
       border-radius: 3px;
       font-family: 'EB Garamond', serif;
       font-size: 15px;
     }
-    .field textarea {
-      resize: vertical;
-      min-height: 180px;
-      line-height: 1.55;
-    }
-    .field input:focus, .field textarea:focus, .field select:focus {
+    .field input:focus, .field select:focus {
       outline: none;
       border-color: var(--gold-hi);
     }
+    .hint { color: var(--ink-dim); font-size: 12px; font-style: italic; margin-top: 4px; }
 
-    .tag-select {
-      display: flex;
-      flex-wrap: wrap;
+    .asset-row {
+      display: grid;
+      grid-template-columns: 1fr 110px 30px;
       gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
     }
-    .tag-select .tag-pill {
+    .asset-row .rm-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--ink-dim);
+      padding: 8px 0;
+      border-radius: 3px;
       cursor: pointer;
     }
-    .tag-select .tag-pill.selected {
-      color: var(--ink);
-      background: var(--tag-color);
-      background: rgba(255,255,255,0.12);
-      border-color: var(--tag-color);
-    }
+    .asset-row .rm-btn:hover { color: var(--danger); border-color: var(--danger); }
 
     .modal-actions {
       display: flex;
@@ -366,28 +360,15 @@
       border-top: 1px solid var(--border);
     }
 
-    /* Stats bar */
-    .stats {
-      display: flex;
-      gap: 24px;
-      padding: 16px 20px;
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      margin-bottom: 24px;
-      font-size: 14px;
-    }
-    .stats .stat {
+    /* --- Empty state --- */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
       color: var(--ink-dim);
-    }
-    .stats .stat b {
-      color: var(--gold-hi);
-      font-family: 'Cinzel', serif;
-      font-weight: 600;
-      font-size: 15px;
-      margin-right: 4px;
+      font-style: italic;
     }
 
+    /* --- Footer --- */
     footer {
       text-align: center;
       margin-top: 60px;
@@ -402,9 +383,14 @@
       body { padding: 20px 16px; }
       h1 { font-size: 28px; }
       header { flex-direction: column; align-items: flex-start; gap: 8px; }
-      .stats { flex-direction: column; gap: 6px; }
-      .entry-meta { flex-wrap: wrap; }
-      .entry-snap { margin-left: 0; }
+      .guild-card {
+        grid-template-columns: 40px 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 10px;
+      }
+      .guild-value { grid-column: 2; grid-row: 2; text-align: left; }
+      .guild-perf { grid-column: 3; grid-row: 1 / 3; align-self: center; }
+      .guild-actions { display: none; }
     }
   </style>
 </head>
@@ -413,375 +399,800 @@
 <header>
   <div>
     <a href="index.html" class="back-link">← Retour à la Guilde</a>
-    <h1>Grimoire des Décisions</h1>
+    <h1>Tournoi des Guildes</h1>
   </div>
   <div class="header-sub">
-    Carnet de bord de l'investisseur<br>
-    <span id="journalMeta">—</span>
+    Classement du Royaume<br>
+    <span id="tournamentMeta">—</span>
   </div>
 </header>
 
-<div class="stats" id="statsBar"></div>
+<section class="intro">
+  <div class="intro-info" id="introInfo">Chargement…</div>
+  <div class="intro-actions">
+    <button onclick="resetTournament()" title="Tout remettre a zero">♻ Réinitialiser</button>
+    <button onclick="promptDCA()" title="Injecter un DCA dans toutes les guildes" style="color:#86efac;border-color:rgba(134,239,172,0.35);">💰 DCA</button>
+    <button onclick="refreshAll()">🔄 Actualiser tout</button>
+    <button class="primary" onclick="openForge()">⚒ Forger une guilde</button>
+  </div>
+</section>
 
-<div class="toolbar">
-  <input type="text" id="searchInput" placeholder="🔍 Rechercher dans les entrées…" oninput="render()">
-  <button class="primary" onclick="openEditor()">✎ Nouvelle entrée</button>
-</div>
+<div class="section-title">Classement</div>
+<section class="ranking" id="rankingContainer">
+  <div class="empty-state">Invocation des guildes rivales…</div>
+</section>
 
-<div class="tag-filters" id="tagFilters"></div>
-
-<section id="entriesContainer">
-  <div class="empty-state">Chargement…</div>
+<div class="section-title" id="chartSectionTitle">Courbes de performance</div>
+<section class="chart-wrap">
+  <canvas id="comparisonChart"></canvas>
+  <div id="chartEmpty" class="chart-empty" style="display:none;">Pas encore d'historique à afficher. Actualise pour lancer le suivi.</div>
 </section>
 
 <footer>
   ❧ Registre local · GitHub Pages · Aucun serveur ❧
 </footer>
 
-<!-- Editor Modal -->
-<div class="modal-veil" id="editorVeil">
+<!-- Forge Modal -->
+<div class="modal-veil" id="forgeVeil">
   <div class="modal-body">
-    <h2 id="editorTitle">Nouvelle entrée</h2>
-    <div class="modal-sub" id="editorSub">Inscris ta pensée dans le grimoire</div>
+    <h2 id="forgeTitle">Forger une Guilde Rivale</h2>
     <div class="field">
-      <label>Nature de l'entrée</label>
-      <div class="tag-select" id="tagSelector"></div>
+      <label>Nom de la guilde</label>
+      <input type="text" id="forgeName" placeholder="Ex: Guilde des Terres Sacrees">
     </div>
     <div class="field">
-      <label>Titre</label>
-      <input type="text" id="entryTitle" placeholder="Ex: DCA de mai · profité du creux BTC" maxlength="120">
+      <label>Icône (emoji)</label>
+      <input type="text" id="forgeIcon" placeholder="🌟" maxlength="4">
     </div>
     <div class="field">
-      <label>Corps de l'entrée</label>
-      <textarea id="entryBody" placeholder="Qu'as-tu décidé ? Qu'as-tu observé ? Qu'as-tu ressenti ?&#10;&#10;Le futur-toi te remerciera de l'avoir écrit."></textarea>
+      <label>Thème chromatique</label>
+      <select id="forgeTheme">
+        <option value="gold">Soleil d'Or</option>
+        <option value="stars">Étoiles Brillantes</option>
+        <option value="dragon">Dragon Céleste</option>
+        <option value="tech">Code Immortel</option>
+        <option value="earth">Terres Sacrées</option>
+        <option value="water">Flot Eternel</option>
+        <option value="shadow">Ombre Silencieuse</option>
+        <option value="celestial">Mage Céleste</option>
+        <option value="ember">Flamme Primordiale</option>
+        <option value="rose">Jardin d'Aurore</option>
+        <option value="amethyst">Améthyste</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Composition · assets (poids en %)</label>
+      <div id="forgeAssets"></div>
+      <button type="button" onclick="addAssetRow()" style="margin-top:8px;">+ Ajouter un asset</button>
+      <div class="hint">Tickers Yahoo Finance : AAPL, MSFT, BTC-USD, GLD, SPY, ^GSPC, EURUSD=X… Les poids seront normalisés à 100%.</div>
     </div>
     <div class="modal-actions">
-      <button onclick="closeEditor()">Annuler</button>
-      <button class="primary" onclick="saveEntry()" id="saveBtn">Sceller l'entrée</button>
+      <button onclick="closeForge()">Annuler</button>
+      <button class="primary" onclick="validateForge()" id="forgeValidateBtn">Forger la guilde</button>
     </div>
   </div>
 </div>
 
 <script>
 /* ================================================================
-   journal.html — logic
-   State key: guildJournal.state
+   tournament.html — logic
+   State key: guildTournament.state
    Depends on: common.js (window.GDCommon)
    ================================================================ */
 
-const LS_STATE = "guildJournal.state";
+const LS_STATE = "guildTournament.state";
 
-const TAGS = [
-  { id: "apport",    label: "Apport",    icon: "💰", color: "var(--tag-apport)"    },
-  { id: "vente",     label: "Vente",     icon: "📉", color: "var(--tag-vente)"     },
-  { id: "rebalance", label: "Rebalance", icon: "⚖",  color: "var(--tag-rebalance)" },
-  { id: "reflexion", label: "Réflexion", icon: "🧠", color: "var(--tag-reflexion)" },
-  { id: "macro",     label: "Macro",     icon: "🌍", color: "var(--tag-macro)"     },
-  { id: "autre",     label: "Autre",     icon: "📝", color: "var(--tag-autre)"     },
+const PRESET_RIVALS = [
+  { name: "Guilde du Soleil d'Or",         theme: "gold",   icon: "☀", assets: [{ticker:"GLD",    weight:100}] },
+  { name: "Guilde des Étoiles Brillantes", theme: "stars",  icon: "⭐", assets: [{ticker:"SPY",    weight:100}] },
+  { name: "Guilde du Dragon Céleste",      theme: "dragon", icon: "🐉", assets: [{ticker:"BTC-USD",weight:100}] },
 ];
 
+const THEMES = {
+  gold:      { color: "#f59e0b", glow: "#fbbf24", label: "Soleil d'Or" },
+  stars:     { color: "#a78bfa", glow: "#c4b5fd", label: "Étoiles" },
+  dragon:    { color: "#ef4444", glow: "#fca5a5", label: "Dragon" },
+  tech:      { color: "#06b6d4", glow: "#67e8f9", label: "Code" },
+  earth:     { color: "#84cc16", glow: "#bef264", label: "Terres" },
+  water:     { color: "#3b82f6", glow: "#93c5fd", label: "Flot" },
+  shadow:    { color: "#6b7280", glow: "#9ca3af", label: "Ombre" },
+  celestial: { color: "#1BBBE9", glow: "#7dd3fc", label: "Céleste" },
+  ember:     { color: "#ff6b35", glow: "#fdba74", label: "Flamme" },
+  rose:      { color: "#f472b6", glow: "#fbcfe8", label: "Rose" },
+  amethyst:  { color: "#a855f7", glow: "#d8b4fe", label: "Améthyste" },
+};
+
 const DEFAULT_STATE = {
-  entries: [],
+  rivalGuilds: [],
+  startDate: null,
+  startCapital: 20000,
+  userStartValue: null,
+  userValueHistory: [],
+  userInjections: [],      // List of user DCAs + initial: [{t, amount}]
+  lastDCAAmount: 900,      // Remembered for next DCA
+  lastRefresh: null,
 };
 
 let state = loadState();
-let editingId = null;
-let currentFilter = "all";   // tag id or "all"
-let currentSearch = "";
+let chart = null;
+let editingGuildId = null;
 
-/* -------- State -------- */
+/* -------- State management -------- */
 function loadState(){
   try {
     const raw = localStorage.getItem(LS_STATE);
     if(raw){
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_STATE, ...parsed };
+      const merged = { ...DEFAULT_STATE, ...parsed };
+      // Migration: legacy guilds without injections[]
+      if(Array.isArray(merged.rivalGuilds)){
+        for(const g of merged.rivalGuilds){
+          if(!Array.isArray(g.injections)){
+            const prices = {};
+            for(const a of (g.assets || [])){
+              prices[a.ticker] = a.startPrice || a.lastPrice || 1;
+            }
+            g.injections = [{
+              t: g.createdAt || Date.now(),
+              amount: merged.startCapital || 20000,
+              prices,
+            }];
+          }
+        }
+      }
+      // Migration: ensure userInjections has the initial
+      if(!Array.isArray(merged.userInjections) || merged.userInjections.length === 0){
+        if(merged.userStartValue){
+          merged.userInjections = [{ t: merged.startDate ? new Date(merged.startDate).getTime() : Date.now(), amount: merged.userStartValue }];
+        } else {
+          merged.userInjections = [];
+        }
+      }
+      return merged;
     }
   } catch(e){ console.warn("loadState fail", e); }
-  return { ...DEFAULT_STATE };
+  return { ...DEFAULT_STATE, userInjections: [] };
 }
 function saveState(){
   try { localStorage.setItem(LS_STATE, JSON.stringify(state)); }
   catch(e){ console.warn("saveState fail", e); }
 }
 
-function generateId(){
-  return "j_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+/* -------- Initialization: first-time setup with presets -------- */
+async function initTournament(){
+  if(!state.startDate){
+    // First-time setup
+    state.startDate = new Date().toISOString().slice(0,10);
+    state.userValueHistory = [];
+    state.userInjections = [];
+
+    const snap = GDCommon.readSnapshot();
+    if(snap && snap.total && snap.total >= 1000){
+      // Anchor tournament capital to user's REAL current total
+      state.startCapital = Math.round(snap.total);
+      state.userStartValue = snap.total;
+      state.userValueHistory.push({ t: Date.now(), v: snap.total });
+      state.userInjections.push({ t: Date.now(), amount: snap.total });
+    } else {
+      // No snapshot: fallback
+      state.startCapital = 20000;
+      state.userInjections.push({ t: Date.now(), amount: 20000 });
+    }
+
+    // Create presets
+    GDCommon.toast("Création des 3 guildes rivales…");
+    for(const preset of PRESET_RIVALS){
+      try {
+        await createRivalGuild(preset.name, preset.theme, preset.icon, preset.assets, false);
+      } catch(e){
+        console.warn("Preset fail", preset.name, e.message);
+      }
+    }
+    saveState();
+    GDCommon.toast("Tournoi démarré ! 🎯");
+  }
 }
 
-/* -------- CRUD -------- */
-function createEntry(data){
-  const snap = GDCommon.readSnapshot();
-  const entry = {
-    id: generateId(),
-    t: Date.now(),
-    title: (data.title || "").trim().slice(0, 120),
-    body:  (data.body || "").trim(),
-    tag:   data.tag || "autre",
-    snapshot: snap ? { total: snap.total || 0, guildName: snap.guildName || "" } : null,
+/* -------- Guild creation -------- */
+async function createRivalGuild(name, theme, icon, assetsInput, announce=true){
+  if(!name || !name.trim()) throw new Error("Nom requis");
+  if(!Array.isArray(assetsInput) || !assetsInput.length) throw new Error("Au moins 1 asset");
+
+  const totalWeight = assetsInput.reduce((s,a) => s + (parseFloat(a.weight) || 0), 0);
+  if(totalWeight <= 0) throw new Error("Poids total invalide");
+
+  // Fetch current price for each asset (this is the starting price)
+  const assets = [];
+  const currentPrices = {};
+  const errors = [];
+  for(const a of assetsInput){
+    const ticker = (a.ticker || "").trim();
+    if(!ticker) continue;
+    try {
+      const r = await GDCommon.fetchYahooPrice(ticker);
+      assets.push({
+        ticker,
+        weight: ((parseFloat(a.weight) || 0) / totalWeight) * 100,
+        startCurrency: r.currency,
+        lastPrice: r.price,
+        lastFetch: Date.now(),
+      });
+      currentPrices[ticker] = r.price;
+    } catch(e){
+      errors.push(`${ticker}: ${e.message}`);
+    }
+  }
+  if(!assets.length){
+    throw new Error("Aucun ticker valide. " + errors.join(" | "));
+  }
+
+  // Initial injection: total of all user injections so far
+  //   (so new guild starts from the amount currently invested in user's tournament)
+  const currentInvested = (state.userInjections || []).reduce((s,i) => s + i.amount, 0) || state.startCapital;
+
+  const guild = {
+    id: "rg_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    name: name.trim(),
+    theme: THEMES[theme] ? theme : "shadow",
+    icon: icon || "✦",
+    createdAt: Date.now(),
+    assets,
+    injections: [{
+      t: Date.now(),
+      amount: currentInvested,
+      prices: currentPrices,
+    }],
+    history: [{ t: Date.now(), v: currentInvested, i: currentInvested }],
+    lastValue: currentInvested,
+    lastInvested: currentInvested,
+    lastFetch: Date.now(),
   };
-  state.entries.push(entry);
+  state.rivalGuilds.push(guild);
   saveState();
-  return entry;
-}
-
-function updateEntry(id, data){
-  const e = state.entries.find(x => x.id === id);
-  if(!e) return null;
-  e.title = (data.title || "").trim().slice(0, 120);
-  e.body  = (data.body || "").trim();
-  e.tag   = data.tag || "autre";
-  e.editedAt = Date.now();
-  saveState();
-  return e;
-}
-
-function deleteEntry(id){
-  const e = state.entries.find(x => x.id === id);
-  if(!e) return;
-  if(!confirm(`Brûler définitivement l'entrée "${e.title}" ?`)) return;
-  state.entries = state.entries.filter(x => x.id !== id);
-  saveState();
-  render();
-  GDCommon.toast("Entrée effacée");
-}
-
-/* -------- Filtering -------- */
-function filteredEntries(){
-  let list = [...state.entries];
-  // Tag filter
-  if(currentFilter && currentFilter !== "all"){
-    list = list.filter(e => e.tag === currentFilter);
+  if(announce){
+    GDCommon.toast(`${guild.icon} ${guild.name} forgée`);
+    if(errors.length) GDCommon.toast("⚠ " + errors.join(" | "), 5000);
   }
-  // Search
-  const q = (currentSearch || "").trim().toLowerCase();
-  if(q){
-    list = list.filter(e =>
-      (e.title || "").toLowerCase().includes(q) ||
-      (e.body  || "").toLowerCase().includes(q)
-    );
+  return guild;
+}
+
+/* -------- Refresh -------- */
+async function refreshRivalGuild(guild){
+  // Fetch current prices for all tickers in this guild
+  const currentPrices = {};
+  const priceErrors = [];
+  for(const asset of guild.assets){
+    try {
+      const r = await GDCommon.fetchYahooPrice(asset.ticker);
+      currentPrices[asset.ticker] = r.price;
+      asset.lastPrice = r.price;
+      asset.lastFetch = Date.now();
+    } catch(e){
+      console.warn("Refresh fail", asset.ticker, e.message);
+      priceErrors.push(asset.ticker);
+      // Fallback: use last known price
+      currentPrices[asset.ticker] = asset.lastPrice || 1;
+    }
   }
-  // Newest first
-  list.sort((a,b) => b.t - a.t);
-  return list;
+
+  // Compute total value across ALL injections (DCA lots)
+  // For each injection: value_now = amount × Σ (weight × priceNow / priceAtInjection)
+  let totalValue = 0;
+  let totalInvested = 0;
+  for(const inj of guild.injections){
+    totalInvested += inj.amount;
+    let injValue = 0;
+    for(const asset of guild.assets){
+      const pThen = inj.prices[asset.ticker];
+      const pNow = currentPrices[asset.ticker];
+      if(!pThen || !pNow) continue;
+      const weight = asset.weight / 100;
+      injValue += (inj.amount * weight) * (pNow / pThen);
+    }
+    totalValue += injValue;
+  }
+
+  guild.lastValue = totalValue;
+  guild.lastInvested = totalInvested;
+  guild.lastFetch = Date.now();
+
+  // Daily history upsert
+  const today = new Date().toISOString().slice(0,10);
+  const last = guild.history[guild.history.length - 1];
+  const lastDay = last ? new Date(last.t).toISOString().slice(0,10) : null;
+  if(lastDay === today){
+    last.v = totalValue;
+    last.i = totalInvested;
+    last.t = Date.now();
+  } else {
+    guild.history.push({ t: Date.now(), v: totalValue, i: totalInvested });
+    if(guild.history.length > 400) guild.history.shift();
+  }
+  return { value: totalValue, invested: totalInvested, errors: priceErrors };
+}
+
+async function refreshUserGuild(){
+  const snap = GDCommon.readSnapshot();
+  if(!snap || !snap.total){
+    return null; // No snapshot — user hasn't opened dashboard yet
+  }
+  if(!state.userStartValue){
+    state.userStartValue = snap.total;
+  }
+  const today = new Date().toISOString().slice(0,10);
+  const last = state.userValueHistory[state.userValueHistory.length - 1];
+  const lastDay = last ? new Date(last.t).toISOString().slice(0,10) : null;
+  if(lastDay === today){
+    last.v = snap.total;
+    last.t = Date.now();
+  } else {
+    state.userValueHistory.push({ t: Date.now(), v: snap.total });
+    if(state.userValueHistory.length > 400) state.userValueHistory.shift();
+  }
+  return snap;
+}
+
+/* -------- DCA (Dollar Cost Averaging) injection -------- */
+async function applyDCA(amount){
+  if(!amount || amount <= 0) throw new Error("Montant invalide");
+  if(!state.rivalGuilds || state.rivalGuilds.length === 0){
+    throw new Error("Pas de guilde en lice");
+  }
+
+  // Fetch current prices for all unique tickers across all guilds
+  const allTickers = new Set();
+  for(const g of state.rivalGuilds){
+    for(const a of g.assets) allTickers.add(a.ticker);
+  }
+  GDCommon.toast(`📊 DCA ${GDCommon.fmt(amount)}€ en cours (${allTickers.size} prix)…`);
+
+  const currentPrices = {};
+  const errors = [];
+  for(const ticker of allTickers){
+    try {
+      const r = await GDCommon.fetchYahooPrice(ticker);
+      currentPrices[ticker] = r.price;
+    } catch(e){
+      errors.push(`${ticker}: ${e.message}`);
+      console.warn("DCA price fail", ticker, e.message);
+    }
+  }
+
+  // Inject into each rival guild at current prices
+  const t = Date.now();
+  let injected = 0;
+  for(const g of state.rivalGuilds){
+    const prices = {};
+    let ok = true;
+    for(const a of g.assets){
+      const p = currentPrices[a.ticker] || a.lastPrice;
+      if(!p){ ok = false; break; }
+      prices[a.ticker] = p;
+    }
+    if(!ok){
+      console.warn("Skipping DCA for", g.name, "- missing prices");
+      continue;
+    }
+    g.injections.push({ t, amount, prices });
+    injected++;
+  }
+
+  // Track user DCA (user's real wallet: they actually added this money)
+  state.userInjections.push({ t, amount });
+  state.lastDCAAmount = amount;
+
+  saveState();
+  await refreshAll();
+
+  const errMsg = errors.length ? ` · ⚠ ${errors.length} erreur(s) prix` : "";
+  GDCommon.toast(`✓ DCA ${GDCommon.fmt(amount)}€ · ${injected}/${state.rivalGuilds.length} guildes${errMsg}`, 4000);
+}
+
+async function promptDCA(){
+  const last = state.lastDCAAmount || 900;
+  const raw = prompt(
+    `💰 Dollar Cost Averaging\n\n` +
+    `Montant mensuel à injecter dans TOUTES les guildes ?\n` +
+    `(en euros · sera aussi compté comme apport dans ta vraie guilde)`,
+    last
+  );
+  if(raw === null) return;
+  const amount = parseFloat(String(raw).replace(",", "."));
+  if(!amount || amount <= 0){
+    GDCommon.toast("⚠ Montant invalide");
+    return;
+  }
+  try {
+    await applyDCA(amount);
+  } catch(e){
+    GDCommon.toast("⚠ " + e.message, 5000);
+  }
+}
+
+async function refreshAll(){
+  await initTournament();
+  GDCommon.toast("🔄 Actualisation en cours…");
+  const refreshBtn = document.querySelector('[onclick="refreshAll()"]');
+  if(refreshBtn) refreshBtn.disabled = true;
+  try {
+    const results = [];
+    for(const g of state.rivalGuilds){
+      try {
+        const r = await refreshRivalGuild(g);
+        results.push({ guild: g.name, ok: true });
+      } catch(e){
+        results.push({ guild: g.name, ok: false, err: e.message });
+      }
+    }
+    await refreshUserGuild();
+    state.lastRefresh = Date.now();
+    saveState();
+    render();
+    const ok = results.filter(r => r.ok).length;
+    GDCommon.toast(`✓ ${ok}/${results.length} guildes actualisées`);
+  } finally {
+    if(refreshBtn) refreshBtn.disabled = false;
+  }
 }
 
 /* -------- Rendering -------- */
-function tagDef(id){ return TAGS.find(t => t.id === id) || TAGS[TAGS.length - 1]; }
-
-function renderTagFilters(){
-  const el = document.getElementById("tagFilters");
-  const counts = { all: state.entries.length };
-  for(const t of TAGS) counts[t.id] = 0;
-  for(const e of state.entries){
-    if(counts[e.tag] != null) counts[e.tag]++;
-  }
-  const pills = [`
-    <span class="tag-pill ${currentFilter==='all' ? 'active' : ''}" onclick="setFilter('all')" style="color: var(--ink)">
-      Tout <span class="count">${counts.all}</span>
-    </span>`];
-  for(const t of TAGS){
-    if(counts[t.id] === 0 && currentFilter !== t.id) continue; // hide empty tags
-    pills.push(`
-      <span class="tag-pill ${currentFilter===t.id ? 'active' : ''}"
-            onclick="setFilter('${t.id}')"
-            style="color: ${t.color}">
-        <span>${t.icon}</span> ${t.label} <span class="count">${counts[t.id]}</span>
-      </span>`);
-  }
-  el.innerHTML = pills.join("");
+function totalUserInvested(){
+  return (state.userInjections || []).reduce((s,i) => s + i.amount, 0);
 }
 
-function setFilter(tagId){
-  currentFilter = tagId;
-  render();
-}
-
-function renderStats(){
-  const el = document.getElementById("statsBar");
-  const total = state.entries.length;
+function computeUserTournamentValue(){
   const snap = GDCommon.readSnapshot();
-  const now = snap ? `${GDCommon.fmt(snap.total || 0)} €` : "—";
-  let monthCount = 0;
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  for(const e of state.entries){
-    const d = new Date(e.t);
-    if(d.getMonth() === currentMonth && d.getFullYear() === currentYear) monthCount++;
+  const invested = totalUserInvested();
+  if(!snap || invested <= 0){
+    return null;
   }
-  el.innerHTML = `
-    <div class="stat"><b>${total}</b> entrée${total > 1 ? "s" : ""} au grimoire</div>
-    <div class="stat"><b>${monthCount}</b> ce mois-ci</div>
-    <div class="stat">État actuel : <b>${now}</b></div>
-  `;
+  const currentTotal = snap.total || 0;
+  const perf = (currentTotal - invested) / invested;
+  return {
+    value: currentTotal,        // user's REAL current total
+    invested,                   // total user has invested (sum of DCAs + initial)
+    performance: perf,
+    raw: currentTotal,
+    snapshot: snap,
+  };
 }
 
-function monthLabel(ts){
-  const d = new Date(ts);
-  return d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+function buildRankingRows(){
+  const rows = [];
+  // Rival guilds
+  for(const g of state.rivalGuilds){
+    const invested = g.lastInvested || (g.injections || []).reduce((s,i) => s + i.amount, 0) || state.startCapital;
+    const value = g.lastValue || invested;
+    rows.push({
+      type: "rival",
+      id: g.id,
+      name: g.name,
+      icon: g.icon,
+      theme: g.theme,
+      value,
+      invested,
+      performance: invested > 0 ? (value - invested) / invested : 0,
+      assetsLabel: g.assets.map(a => `${a.ticker} ${Math.round(a.weight)}%`).join(" · "),
+      dcaCount: Math.max(0, (g.injections || []).length - 1),
+      raw: g,
+    });
+  }
+  // User guild
+  const user = computeUserTournamentValue();
+  if(user){
+    const snap = user.snapshot;
+    const dcaCount = Math.max(0, (state.userInjections || []).length - 1);
+    rows.push({
+      type: "user",
+      id: "user",
+      name: snap.guildName || "Votre Guilde",
+      icon: "⚜",
+      theme: "gold",
+      value: user.value,
+      invested: user.invested,
+      performance: user.performance,
+      assetsLabel: "Valeur réelle · capital injecté " + GDCommon.fmt(user.invested) + " €",
+      dcaCount,
+      raw: { snapshot: snap, startValue: state.userStartValue },
+    });
+  } else {
+    rows.push({
+      type: "user-missing",
+      id: "user",
+      name: "Votre Guilde",
+      icon: "⚜",
+      theme: "shadow",
+      value: state.startCapital,
+      invested: state.startCapital,
+      performance: 0,
+      assetsLabel: "Ouvre le dashboard au moins une fois pour activer le suivi",
+      dcaCount: 0,
+      raw: null,
+    });
+  }
+  rows.sort((a,b) => b.performance - a.performance);
+  return rows;
 }
 
-function dateLabel(ts){
-  const d = new Date(ts);
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+function perfClass(p){
+  if(Math.abs(p) < 0.001) return "flat";
+  return p > 0 ? "up" : "down";
 }
 
-function escapeHtml(s){
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function renderEntries(){
-  const el = document.getElementById("entriesContainer");
-  const list = filteredEntries();
-  if(!list.length){
-    const isEmpty = state.entries.length === 0;
-    el.innerHTML = `
-      <div class="empty-state">
-        ${isEmpty
-          ? `Le grimoire est vierge.<br>Inscris ta première pensée d'investisseur.
-             <div class="cta"><button class="primary" onclick="openEditor()">✎ Commencer le grimoire</button></div>`
-          : `Aucune entrée ne correspond à ta recherche.`
-        }
-      </div>`;
+function renderRanking(){
+  const el = document.getElementById("rankingContainer");
+  const rows = buildRankingRows();
+  if(!rows.length){
+    el.innerHTML = `<div class="empty-state">Aucune guilde en lice. Clique sur "Forger une guilde".</div>`;
     return;
   }
-  // Group by month
-  let html = "";
-  let currentMonth = null;
-  for(const e of list){
-    const m = monthLabel(e.t);
-    if(m !== currentMonth){
-      html += `<div class="month-sep">${m}</div>`;
-      currentMonth = m;
-    }
-    const tag = tagDef(e.tag);
-    const snapText = e.snapshot && e.snapshot.total
-      ? `État : ${GDCommon.fmt(e.snapshot.total)} €`
-      : "";
-    const bodyHtml = escapeHtml(e.body).replace(/\n/g, "<br>");
-    html += `
-      <div class="entry" style="--tag-color: ${tag.color}">
-        <div class="entry-meta">
-          <span class="entry-tag" style="--tag-color: ${tag.color}"><span>${tag.icon}</span> ${tag.label}</span>
-          <span class="entry-date">${dateLabel(e.t)}</span>
-          ${snapText ? `<span class="entry-snap">${snapText}</span>` : ""}
-        </div>
-        <div class="entry-title">${escapeHtml(e.title) || "<em style='color: var(--ink-dim)'>Sans titre</em>"}</div>
-        <div class="entry-body">${bodyHtml}</div>
-        <div class="entry-actions">
-          <button class="icon-btn" onclick="openEditor('${e.id}')" title="Modifier">✎</button>
-          <button class="icon-btn" onclick="deleteEntry('${e.id}')" title="Brûler">🗑</button>
-        </div>
+  el.innerHTML = rows.map((r, idx) => {
+    const theme = THEMES[r.theme] || THEMES.shadow;
+    const isYou = r.type === "user" || r.type === "user-missing";
+    const pc = perfClass(r.performance);
+    const pos = idx + 1;
+    const dcaBadge = r.dcaCount > 0 ? `<span style="color:var(--ink-dim);font-size:11px;margin-left:8px;">💰 ${r.dcaCount} DCA</span>` : "";
+    const actions = isYou ? "" : `
+      <div class="guild-actions">
+        <button class="icon-btn" onclick="editGuild('${r.id}')" title="Modifier">✎</button>
+        <button class="icon-btn" onclick="deleteGuild('${r.id}')" title="Dissoudre">🗑</button>
       </div>`;
+    return `
+      <div class="guild-card ${isYou ? 'you' : ''}" style="--theme-color: ${theme.color}">
+        <div class="rank-position ${pos === 1 ? 'pos-1' : ''}">${pos}</div>
+        <div class="guild-main">
+          <div class="guild-name ${isYou ? 'you' : ''}">
+            <span class="guild-icon">${r.icon}</span>
+            ${r.name}
+            ${dcaBadge}
+          </div>
+          <div class="guild-assets">${r.assetsLabel}</div>
+        </div>
+        <div class="guild-value">${GDCommon.fmt(r.value)}<span class="currency">€</span></div>
+        <div class="guild-perf ${pc}">${GDCommon.fmtPct(r.performance * 100)}</div>
+        ${actions}
+      </div>`;
+  }).join("");
+}
+
+function renderChart(){
+  const canvas = document.getElementById("comparisonChart");
+  const emptyEl = document.getElementById("chartEmpty");
+  if(!canvas || !window.Chart) return;
+
+  const datasets = [];
+  // Rivals
+  for(const g of state.rivalGuilds){
+    if(!g.history || g.history.length < 1) continue;
+    const theme = THEMES[g.theme] || THEMES.shadow;
+    datasets.push({
+      label: g.name,
+      data: g.history.map(h => ({ x: h.t, y: h.v })),
+      borderColor: theme.color,
+      backgroundColor: theme.color + "15",
+      tension: 0.25,
+      pointRadius: 0,
+      borderWidth: 2,
+    });
   }
-  el.innerHTML = html;
+  // User
+  if(state.userValueHistory && state.userValueHistory.length > 0){
+    datasets.push({
+      label: "Votre Guilde",
+      data: state.userValueHistory.map(h => ({ x: h.t, y: h.v })),
+      borderColor: "#fbbf24",
+      backgroundColor: "#fbbf2415",
+      tension: 0.25,
+      pointRadius: 0,
+      borderWidth: 3,
+      borderDash: [],
+    });
+  }
+
+  if(datasets.length === 0 || datasets.every(d => d.data.length < 2)){
+    canvas.style.display = "none";
+    emptyEl.style.display = "block";
+    return;
+  }
+  canvas.style.display = "block";
+  emptyEl.style.display = "none";
+
+  if(chart) chart.destroy();
+  chart = new Chart(canvas.getContext("2d"), {
+    type: "line",
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2.4,
+      interaction: { intersect: false, mode: "index" },
+      scales: {
+        x: {
+          type: "time",
+          time: { unit: "day", displayFormats: { day: "dd MMM" } },
+          ticks: { color: "#a89878", font: { family: "'EB Garamond', serif" } },
+          grid: { color: "rgba(212, 167, 68, 0.05)" },
+        },
+        y: {
+          ticks: {
+            color: "#a89878",
+            font: { family: "'EB Garamond', serif" },
+            callback: v => GDCommon.fmtCompact(v) + " €",
+          },
+          grid: { color: "rgba(212, 167, 68, 0.05)" },
+        },
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: "#f0e4c4",
+            font: { family: "'Cinzel', serif", size: 12 },
+            boxWidth: 12,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${GDCommon.fmt(ctx.parsed.y)} €`,
+          },
+        },
+      },
+    },
+  });
+}
+
+function renderIntro(){
+  const startDate = state.startDate || new Date().toISOString().slice(0,10);
+  const formattedStart = new Date(startDate).toLocaleDateString("fr-FR");
+  const totalInvested = totalUserInvested();
+  const dcaCount = Math.max(0, (state.userInjections || []).length - 1);
+  const dcaInfo = dcaCount > 0 ? ` · <b>${dcaCount}</b> DCA effectué${dcaCount > 1 ? "s" : ""}` : "";
+  const lastRefresh = state.lastRefresh
+    ? new Date(state.lastRefresh).toLocaleString("fr-FR")
+    : "jamais";
+  document.getElementById("introInfo").innerHTML =
+    `Débuté le <b>${formattedStart}</b> · Capital investi : <b>${GDCommon.fmt(totalInvested)} €</b>${dcaInfo} · <span style="font-size:12px;">Dernier refresh : ${lastRefresh}</span>`;
+
+  document.getElementById("tournamentMeta").textContent =
+    `${state.rivalGuilds.length} guilde${state.rivalGuilds.length > 1 ? "s" : ""} en lice`;
 }
 
 function render(){
-  currentSearch = (document.getElementById("searchInput") || {}).value || "";
-  renderStats();
-  renderTagFilters();
-  renderEntries();
-  document.getElementById("journalMeta").textContent =
-    `${state.entries.length} entrée${state.entries.length > 1 ? "s" : ""}`;
+  renderIntro();
+  renderRanking();
+  renderChart();
+  const titleEl = document.getElementById("chartSectionTitle");
+  if(titleEl){
+    titleEl.textContent = `Courbes de valeur · capital investi ${GDCommon.fmt(totalUserInvested())} €`;
+  }
 }
 
-/* -------- Editor -------- */
-let editorTag = "autre";
+/* -------- Forge modal -------- */
 
-function renderTagSelector(){
-  const el = document.getElementById("tagSelector");
-  el.innerHTML = TAGS.map(t => `
-    <span class="tag-pill ${editorTag === t.id ? 'selected' : ''}"
-          onclick="selectEditorTag('${t.id}')"
-          style="color: ${t.color}; --tag-color: ${t.color};">
-      <span>${t.icon}</span> ${t.label}
-    </span>
-  `).join("");
-}
-function selectEditorTag(tagId){
-  editorTag = tagId;
-  renderTagSelector();
-}
+function openForge(guildId){
+  editingGuildId = guildId || null;
+  document.getElementById("forgeTitle").textContent = editingGuildId ? "Modifier la guilde" : "Forger une Guilde Rivale";
+  document.getElementById("forgeValidateBtn").textContent = editingGuildId ? "Sauvegarder" : "Forger la guilde";
 
-function openEditor(id){
-  editingId = id || null;
-  if(editingId){
-    const e = state.entries.find(x => x.id === editingId);
-    if(!e) return;
-    document.getElementById("editorTitle").textContent = "Modifier l'entrée";
-    document.getElementById("editorSub").textContent = "Corrige le manuscrit";
-    document.getElementById("entryTitle").value = e.title || "";
-    document.getElementById("entryBody").value  = e.body  || "";
-    editorTag = e.tag || "autre";
-    document.getElementById("saveBtn").textContent = "Enregistrer";
+  if(editingGuildId){
+    const g = state.rivalGuilds.find(x => x.id === editingGuildId);
+    if(!g) return;
+    document.getElementById("forgeName").value = g.name;
+    document.getElementById("forgeIcon").value = g.icon;
+    document.getElementById("forgeTheme").value = g.theme;
+    document.getElementById("forgeAssets").innerHTML = "";
+    g.assets.forEach(a => addAssetRow(a.ticker, a.weight));
   } else {
-    document.getElementById("editorTitle").textContent = "Nouvelle entrée";
-    document.getElementById("editorSub").textContent = "Inscris ta pensée dans le grimoire";
-    document.getElementById("entryTitle").value = "";
-    document.getElementById("entryBody").value  = "";
-    editorTag = "reflexion";
-    document.getElementById("saveBtn").textContent = "Sceller l'entrée";
+    document.getElementById("forgeName").value = "";
+    document.getElementById("forgeIcon").value = "✦";
+    document.getElementById("forgeTheme").value = "shadow";
+    document.getElementById("forgeAssets").innerHTML = "";
+    addAssetRow();
   }
-  renderTagSelector();
-  document.getElementById("editorVeil").classList.add("show");
-  setTimeout(() => document.getElementById("entryTitle").focus(), 50);
+  document.getElementById("forgeVeil").classList.add("show");
 }
-function closeEditor(){
-  document.getElementById("editorVeil").classList.remove("show");
-  editingId = null;
+function closeForge(){
+  document.getElementById("forgeVeil").classList.remove("show");
+  editingGuildId = null;
 }
 
-function saveEntry(){
-  const title = document.getElementById("entryTitle").value.trim();
-  const body  = document.getElementById("entryBody").value.trim();
-  if(!title && !body){
-    GDCommon.toast("⚠ Titre ou corps requis");
-    return;
+function addAssetRow(ticker="", weight=100){
+  const container = document.getElementById("forgeAssets");
+  const row = document.createElement("div");
+  row.className = "asset-row";
+  row.innerHTML = `
+    <input type="text" class="asset-ticker" placeholder="Ticker (ex: AAPL)" value="${ticker}">
+    <input type="number" class="asset-weight" placeholder="Poids %" value="${weight}" min="0" step="0.1">
+    <button type="button" class="rm-btn" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+async function validateForge(){
+  const name = document.getElementById("forgeName").value.trim();
+  const icon = document.getElementById("forgeIcon").value.trim() || "✦";
+  const theme = document.getElementById("forgeTheme").value;
+  const rows = document.querySelectorAll("#forgeAssets .asset-row");
+  const assets = Array.from(rows).map(r => ({
+    ticker: r.querySelector(".asset-ticker").value.trim(),
+    weight: parseFloat(r.querySelector(".asset-weight").value) || 0,
+  })).filter(a => a.ticker);
+
+  if(!name){ GDCommon.toast("Nom requis"); return; }
+  if(!assets.length){ GDCommon.toast("Au moins 1 ticker requis"); return; }
+
+  const btn = document.getElementById("forgeValidateBtn");
+  btn.disabled = true;
+  btn.textContent = "Forge en cours…";
+  try {
+    if(editingGuildId){
+      // Remove old, create new (simplest; preserves history if same ticker)
+      const oldGuild = state.rivalGuilds.find(g => g.id === editingGuildId);
+      const newGuild = await createRivalGuild(name, theme, icon, assets, false);
+      newGuild.icon = icon;
+      // Preserve history if it existed
+      if(oldGuild && oldGuild.history){
+        newGuild.history = oldGuild.history;
+      }
+      // Replace in array
+      state.rivalGuilds = state.rivalGuilds.map(g => g.id === editingGuildId ? newGuild : g);
+      state.rivalGuilds = state.rivalGuilds.filter(g => g.id !== editingGuildId || g === newGuild);
+      // Actually simpler: remove old, push new stays as-is from createRivalGuild
+      state.rivalGuilds = state.rivalGuilds.filter(g => g.id !== editingGuildId && g.id !== newGuild.id);
+      state.rivalGuilds.push(newGuild);
+      saveState();
+      GDCommon.toast(`${icon} ${name} modifiée`);
+    } else {
+      await createRivalGuild(name, theme, icon, assets, true);
+    }
+    closeForge();
+    render();
+  } catch(e){
+    GDCommon.toast("⚠ " + e.message, 5000);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editingGuildId ? "Sauvegarder" : "Forger la guilde";
   }
-  const data = { title, body, tag: editorTag };
-  if(editingId){
-    updateEntry(editingId, data);
-    GDCommon.toast("Entrée modifiée");
-  } else {
-    createEntry(data);
-    GDCommon.toast("Entrée scellée 📖");
-  }
-  closeEditor();
+}
+
+function editGuild(id){ openForge(id); }
+function deleteGuild(id){
+  const g = state.rivalGuilds.find(x => x.id === id);
+  if(!g) return;
+  if(!confirm(`Dissoudre la guilde "${g.name}" ? Son historique sera perdu.`)) return;
+  state.rivalGuilds = state.rivalGuilds.filter(x => x.id !== id);
+  saveState();
   render();
+  GDCommon.toast(`${g.icon} ${g.name} dissoute`);
 }
 
-/* -------- Keyboard shortcuts -------- */
-document.addEventListener("keydown", e => {
-  // Ctrl+Enter to save in editor
-  if((e.ctrlKey || e.metaKey) && e.key === "Enter"){
-    if(document.getElementById("editorVeil").classList.contains("show")){
-      e.preventDefault();
-      saveEntry();
-    }
-  }
-  // Escape to close modal
-  if(e.key === "Escape"){
-    if(document.getElementById("editorVeil").classList.contains("show")){
-      closeEditor();
-    }
-  }
-  // Ctrl+N for new entry
-  if((e.ctrlKey || e.metaKey) && e.key === "n"){
-    if(!document.getElementById("editorVeil").classList.contains("show")){
-      e.preventDefault();
-      openEditor();
-    }
-  }
-});
+async function resetTournament(){
+  const msg = `⚠ Réinitialiser le tournoi ?\n\n` +
+              `• Toutes les guildes rivales seront DISSOUTES (y compris celles que tu as créées)\n` +
+              `• L'historique des performances sera EFFACÉ\n` +
+              `• Le tournoi redémarrera aujourd'hui avec ta valeur actuelle comme capital de base\n` +
+              `• Les 3 guildes preset (Or, S&P 500, BTC) seront recréées\n\n` +
+              `Continuer ?`;
+  if(!confirm(msg)) return;
+  try {
+    localStorage.removeItem(LS_STATE);
+  } catch(e){}
+  state = { ...DEFAULT_STATE };
+  await initTournament();
+  render();
+  // Force refresh to get current prices
+  setTimeout(() => refreshAll(), 300);
+}
 
 /* -------- Boot -------- */
-render();
+(async function boot(){
+  await initTournament();
+  render();
+  // Auto-refresh on load if state is old (>30min)
+  const now = Date.now();
+  if(!state.lastRefresh || (now - state.lastRefresh) > 30*60*1000){
+    setTimeout(() => refreshAll(), 500);
+  }
+})();
 </script>
 
 </body>
