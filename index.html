@@ -1236,6 +1236,10 @@
       <h1 id="guildName" class="editable">Guilde du <span>Mille Royaume</span></h1>
     </div>
     <div class="banner-right">
+      <a class="ctrl-btn" href="achievements.html" id="btnAchievements" style="text-decoration:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 8 L7 14 L12 5 L17 14 L21 8 L20 18 L4 18 Z"/><path d="M4 18 L20 18"/><circle cx="12" cy="10" r="0.8" fill="currentColor"/></svg>
+        Couronnes
+      </a>
       <a class="ctrl-btn" href="projection.html" id="btnProjection" style="text-decoration:none;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
         Projection
@@ -2659,13 +2663,22 @@ function renderAll(){
   renderLadder();
   renderQuests();
   renderChart();
-  // Expose dashboard snapshot for tournament.html (excludes mages flagged as non-invested capital)
+  // Expose dashboard snapshot for tournament.html / achievements.html
+  // (excludes mages flagged as non-invested capital; also exposes structural info
+  //  for achievements.html which cannot decrypt main state)
   try {
     if(window.GDCommon && typeof window.GDCommon.writeSnapshot === "function"){
+      const mageCount = ACCOUNT_DEFS.filter(d => (state.accounts[d.id] || 0) > 0).length;
+      const autoWalletCount = ["polymarket","crypto","enzymeVault"]
+        .filter(k => (((state.wallets || {})[k]) || "").trim().length > 0).length;
+      const chronicleCount = Array.isArray(chronicle) ? chronicle.length : 0;
       window.GDCommon.writeSnapshot({
         total: getInvestedTotal(),
         guildName: state.guildName,
         guildMasterName: state.guildMasterName,
+        mageCount,
+        autoWalletCount,
+        chronicleCount,
       });
     }
   } catch(e){ /* non-critical */ }
@@ -2850,9 +2863,10 @@ async function saveSettings(){
 const TOURNAMENT_STORAGE_KEY = "guildTournament.state";
 const JOURNAL_STORAGE_KEY = "guildJournal.state";
 const PROJECTION_STORAGE_KEY = "guildProjection.state";
+const ACHIEVEMENTS_STORAGE_KEY = "guildAchievements.state";
 
 function doExport(){
-  let tournamentState = null, journalState = null, projectionState = null;
+  let tournamentState = null, journalState = null, projectionState = null, achievementsState = null;
   try {
     const raw = localStorage.getItem(TOURNAMENT_STORAGE_KEY);
     if(raw) tournamentState = JSON.parse(raw);
@@ -2865,6 +2879,10 @@ function doExport(){
     const raw = localStorage.getItem(PROJECTION_STORAGE_KEY);
     if(raw) projectionState = JSON.parse(raw);
   } catch(e){}
+  try {
+    const raw = localStorage.getItem(ACHIEVEMENTS_STORAGE_KEY);
+    if(raw) achievementsState = JSON.parse(raw);
+  } catch(e){}
 
   const payload = {
     version: 2,
@@ -2874,6 +2892,7 @@ function doExport(){
     tournamentState,
     journalState,
     projectionState,
+    achievementsState,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   const url = URL.createObjectURL(blob);
@@ -2884,7 +2903,8 @@ function doExport(){
   URL.revokeObjectURL(url);
   const rivalCount = tournamentState && Array.isArray(tournamentState.rivalGuilds) ? tournamentState.rivalGuilds.length : 0;
   const journalCount = journalState && Array.isArray(journalState.entries) ? journalState.entries.length : 0;
-  toast(`Grimoire exporté · ${chronicle.length} chronique(s) · ${rivalCount} guilde(s) rivale(s) · ${journalCount} entrée(s)`);
+  const unlockedCount = achievementsState && achievementsState.unlockedAt ? Object.keys(achievementsState.unlockedAt).length : 0;
+  toast(`Grimoire exporté · ${chronicle.length} chronique(s) · ${rivalCount} rivale(s) · ${journalCount} entrée(s) · ${unlockedCount} couronne(s)`);
 }
 
 function doImport(file){
@@ -2919,6 +2939,13 @@ function doImport(file){
           parts.push("projection");
         } catch(err){ console.warn("Projection state write fail", err); }
       }
+      if(data.achievementsState && typeof data.achievementsState === "object"){
+        try {
+          localStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, JSON.stringify(data.achievementsState));
+          const n = data.achievementsState.unlockedAt ? Object.keys(data.achievementsState.unlockedAt).length : 0;
+          parts.push(`${n} couronne(s)`);
+        } catch(err){ console.warn("Achievements state write fail", err); }
+      }
 
       if(data.version === 1 || data.version === undefined){
         parts.push("(format v1 · extras non inclus)");
@@ -2935,7 +2962,7 @@ function doImport(file){
 }
 
 async function doReset(){
-  if(!confirm("Effacer DÉFINITIVEMENT tout le grimoire, les chroniques, le tournoi, le journal ET la projection ?")) return;
+  if(!confirm("Effacer DÉFINITIVEMENT tout le grimoire, les chroniques, le tournoi, le journal, la projection ET les couronnes ?")) return;
   if(!confirm("Dernier avertissement : cette action est irréversible. Continuer ?")) return;
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(HISTORY_KEY);
@@ -2943,6 +2970,7 @@ async function doReset(){
   localStorage.removeItem(TOURNAMENT_STORAGE_KEY);
   localStorage.removeItem(JOURNAL_STORAGE_KEY);
   localStorage.removeItem(PROJECTION_STORAGE_KEY);
+  localStorage.removeItem(ACHIEVEMENTS_STORAGE_KEY);
   localStorage.removeItem("guildDashboard.snapshot");
   location.reload();
 }
