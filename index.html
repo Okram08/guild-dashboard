@@ -1236,6 +1236,10 @@
       <h1 id="guildName" class="editable">Guilde du <span>Mille Royaume</span></h1>
     </div>
     <div class="banner-right">
+      <a class="ctrl-btn" href="journal.html" id="btnJournal" style="text-decoration:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        Grimoire
+      </a>
       <a class="ctrl-btn" href="tournament.html" id="btnTournament" style="text-decoration:none;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
         Tournoi
@@ -2839,12 +2843,31 @@ async function saveSettings(){
 }
 
 /* ---------- Export / Import ---------- */
+const TOURNAMENT_STORAGE_KEY = "guildTournament.state";
+const JOURNAL_STORAGE_KEY = "guildJournal.state";
+
 function doExport(){
+  // Read tournament state from its own LS key (tournament.html manages it independently)
+  let tournamentState = null;
+  try {
+    const raw = localStorage.getItem(TOURNAMENT_STORAGE_KEY);
+    if(raw) tournamentState = JSON.parse(raw);
+  } catch(e){ console.warn("Tournament state read fail", e); }
+
+  // Read journal state from its own LS key (journal.html manages it independently)
+  let journalState = null;
+  try {
+    const raw = localStorage.getItem(JOURNAL_STORAGE_KEY);
+    if(raw) journalState = JSON.parse(raw);
+  } catch(e){ console.warn("Journal state read fail", e); }
+
   const payload = {
-    version: 1,
+    version: 2,
     exported: new Date().toISOString(),
     state,
-    chronicle
+    chronicle,
+    tournamentState,
+    journalState,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   const url = URL.createObjectURL(blob);
@@ -2853,20 +2876,50 @@ function doExport(){
   a.download = `grimoire_${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  toast("Grimoire exporté");
+  const rivalCount = tournamentState && Array.isArray(tournamentState.rivalGuilds) ? tournamentState.rivalGuilds.length : 0;
+  const journalCount = journalState && Array.isArray(journalState.entries) ? journalState.entries.length : 0;
+  toast(`Grimoire exporté · ${chronicle.length} chronique(s) · ${rivalCount} guilde(s) rivale(s) · ${journalCount} entrée(s) de journal`);
 }
+
 function doImport(file){
   const reader = new FileReader();
   reader.onload = async e => {
     try {
       const data = JSON.parse(e.target.result);
+      // Main state (always restore if present)
       if(data.state) state = {...DEFAULT_STATE, ...data.state, accounts:{...DEFAULT_STATE.accounts, ...(data.state.accounts||{})}, wallets:{...DEFAULT_STATE.wallets, ...(data.state.wallets||{})}};
       if(Array.isArray(data.chronicle)) chronicle = data.chronicle;
       await saveState();
       await saveChronicle();
+
+      const parts = [`${chronicle.length} chronique(s)`];
+
+      // Tournament state (v2+ exports)
+      if(data.tournamentState && typeof data.tournamentState === "object"){
+        try {
+          localStorage.setItem(TOURNAMENT_STORAGE_KEY, JSON.stringify(data.tournamentState));
+          const n = Array.isArray(data.tournamentState.rivalGuilds) ? data.tournamentState.rivalGuilds.length : 0;
+          parts.push(`${n} guilde(s) rivale(s)`);
+        } catch(err){ console.warn("Tournament state write fail", err); }
+      }
+
+      // Journal state (v2+ exports)
+      if(data.journalState && typeof data.journalState === "object"){
+        try {
+          localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(data.journalState));
+          const n = Array.isArray(data.journalState.entries) ? data.journalState.entries.length : 0;
+          parts.push(`${n} entrée(s) de journal`);
+        } catch(err){ console.warn("Journal state write fail", err); }
+      }
+
+      if(data.version === 1 || data.version === undefined){
+        parts.push("(format v1 · tournoi/journal non inclus)");
+      }
+
       renderAll();
-      toast("Grimoire importé · " + chronicle.length + " chronique(s)");
+      toast("Grimoire importé · " + parts.join(" · "));
     } catch(err){
+      console.error("Import fail", err);
       toast("Import échoué : fichier corrompu");
     }
   };
@@ -2874,11 +2927,14 @@ function doImport(file){
 }
 
 async function doReset(){
-  if(!confirm("Effacer DÉFINITIVEMENT tout le grimoire et ses chroniques ?")) return;
+  if(!confirm("Effacer DÉFINITIVEMENT tout le grimoire, les chroniques, le tournoi ET le journal ?")) return;
   if(!confirm("Dernier avertissement : cette action est irréversible. Continuer ?")) return;
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(HISTORY_KEY);
   localStorage.removeItem(META_KEY);
+  localStorage.removeItem(TOURNAMENT_STORAGE_KEY);
+  localStorage.removeItem(JOURNAL_STORAGE_KEY);
+  localStorage.removeItem("guildDashboard.snapshot");
   location.reload();
 }
 
