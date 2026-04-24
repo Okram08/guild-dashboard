@@ -943,19 +943,23 @@
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(201,160,74,0.2)">
       <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">◈ Oracle des Cours</div>
 
+      <div style="padding:10px 12px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:2px;margin-bottom:14px;font-size:12px;color:var(--parchment);line-height:1.5">
+        <b style="color:var(--success)">Source principale :</b> Yahoo Finance via proxy CORS (gratuit, couvre Xetra, LSE, Paris, US). Aucune configuration nécessaire.
+      </div>
+
       <div class="field">
-        <label>Clé API Twelve Data <span style="color:var(--success);font-weight:normal">(recommandé)</span></label>
-        <input type="text" id="setTwelveKey" placeholder="xxxxxxxxxxxxxxxx">
+        <label>Clé API Twelve Data <span style="color:var(--parchment-dim);font-weight:normal;font-size:10px">(optionnel · fallback US uniquement)</span></label>
+        <input type="text" id="setTwelveKey" placeholder="Vide = pas utilisé">
         <div class="hint">
-          Gratuit 800 req/jour · CORS natif (pas de proxy) · Inscription 2 min :
-          <a href="https://twelvedata.com/register" target="_blank" style="color:var(--gold-bright);text-decoration:underline">twelvedata.com/register</a>
+          ⚠️ Free plan ne couvre PAS les ETFs européens (FWIA, ANAV…). Utile pour stocks US uniquement.
+          Inscription : <a href="https://twelvedata.com/register" target="_blank" style="color:var(--gold-bright);text-decoration:underline">twelvedata.com</a>
         </div>
       </div>
 
       <div class="field">
-        <label style="opacity:.7">Proxy CORS (fallback Stooq si pas de clé)</label>
-        <input type="text" id="setProxy" placeholder="Laisser vide = chaîne auto">
-        <div class="hint" style="opacity:.7">Utilisé uniquement si pas de clé Twelve Data. Ex : <code style="color:var(--gold-pale)">https://corsproxy.io/?url=</code></div>
+        <label style="opacity:.7">Proxy CORS custom <span style="color:var(--parchment-dim);font-weight:normal;font-size:10px">(optionnel)</span></label>
+        <input type="text" id="setProxy" placeholder="Laisser vide = cascade auto (corsproxy, allorigins, codetabs)">
+        <div class="hint" style="opacity:.7">Ex : <code style="color:var(--gold-pale)">https://corsproxy.io/?url=</code> si tu veux forcer un proxy spécifique</div>
       </div>
     </div>
 
@@ -1861,6 +1865,49 @@ function parseTicker(ticker){
   return { symbol: parts[0], exchange: EX_MAP[suffix] !== undefined ? EX_MAP[suffix] : suffix };
 }
 
+/* -------- Yahoo Finance (chart endpoint · works for all exchanges) -------- */
+async function fetchYahooPrice(ticker){
+  // Yahoo uses same suffix convention as Stooq: FWIA.DE, ANAV.DE, AAPL, etc.
+  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker.trim())}?interval=1d&range=1d`;
+  const DEFAULT_PROXIES = [
+    "https://corsproxy.io/?url=",
+    "https://api.allorigins.win/raw?url=",
+    "https://api.codetabs.com/v1/proxy?quest=",
+  ];
+  const custom = (state.proxyUrl || "").trim();
+  const proxies = custom ? [custom] : DEFAULT_PROXIES;
+
+  let lastErr = null;
+  for(const proxy of proxies){
+    const url = proxy + encodeURIComponent(yahooUrl);
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      let res;
+      try {
+        res = await fetch(url, {cache:"no-store", signal: ctrl.signal});
+      } finally { clearTimeout(tid); }
+      if(!res.ok){ lastErr = new Error("Proxy HTTP "+res.status); continue; }
+      const data = await res.json();
+      const result = data && data.chart && data.chart.result && data.chart.result[0];
+      if(!result){
+        // Yahoo answered but no data — real "symbol not found"
+        throw new Error("Ticker inconnu sur Yahoo");
+      }
+      const price = result.meta && result.meta.regularMarketPrice;
+      if(!price){ lastErr = new Error("Prix absent Yahoo"); continue; }
+      const ts = result.meta.regularMarketTime;
+      const dt = ts ? new Date(ts*1000) : new Date();
+      return { price: parseFloat(price), date: dt.toISOString().slice(0,10), time: dt.toTimeString().slice(0,8) };
+    } catch(e){
+      if(e.message && e.message.includes("Ticker inconnu")) throw e;
+      if(e.name === "AbortError") lastErr = new Error("Timeout proxy (>8s)");
+      else lastErr = e;
+    }
+  }
+  throw lastErr || new Error("Tous les proxies ont échoué");
+}
+
 async function fetchTwelveDataPrice(ticker){
   const key = (state.twelveDataKey || "").trim();
   if(!key) throw new Error("Clé Twelve Data manquante");
@@ -1891,11 +1938,32 @@ async function fetchTwelveDataPrice(ticker){
 }
 
 async function fetchPrice(ticker){
-  // Primary: Twelve Data (if API key set). Fallback: Stooq via proxy.
-  if((state.twelveDataKey || "").trim()){
-    return fetchTwelveDataPrice(ticker);
+  // Cascade: try sources in order until one succeeds.
+  // 1. Yahoo via proxy (best EU coverage, free, no key)
+  // 2. Twelve Data (if key set, great for US stocks)
+  // 3. Stooq via proxy (last resort)
+  const errors = [];
+  try {
+    return await fetchYahooPrice(ticker);
+  } catch(e){
+    errors.push("Yahoo: " + (e.message || "err"));
+    console.warn("Yahoo fail for "+ticker, e.message);
   }
-  return fetchStooqPrice(ticker);
+  if((state.twelveDataKey || "").trim()){
+    try {
+      return await fetchTwelveDataPrice(ticker);
+    } catch(e){
+      errors.push("TwelveData: " + (e.message || "err"));
+      console.warn("TwelveData fail for "+ticker, e.message);
+    }
+  }
+  try {
+    return await fetchStooqPrice(ticker);
+  } catch(e){
+    errors.push("Stooq: " + (e.message || "err"));
+    console.warn("Stooq fail for "+ticker, e.message);
+  }
+  throw new Error(errors.join(" | "));
 }
 
 async function fetchStooqPrice(ticker){
