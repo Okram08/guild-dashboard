@@ -1669,7 +1669,7 @@ async function fetchPolymarketValue(address){
   if(!/^0x[a-f0-9]{40}$/.test(addr)) throw new Error("Adresse Polymarket invalide");
   const url = `https://data-api.polymarket.com/value?user=${addr}`;
   const ctrl = new AbortController();
-  const tid = setTimeout(() => ctrl.abort(), 10000);
+  const tid = setTimeout(() => ctrl.abort(), 15000);
   let res;
   try {
     res = await fetch(url, {cache:"no-store", signal:ctrl.signal});
@@ -1711,7 +1711,7 @@ async function fetchCryptoWalletValue(address){
   for(const proxy of proxies){
     const url = proxy + encodeURIComponent(ethplorerUrl);
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 10000);
+    const tid = setTimeout(() => ctrl.abort(), 15000);
     try {
       const res = await fetch(url, {cache:"no-store", signal:ctrl.signal});
       clearTimeout(tid);
@@ -2489,7 +2489,7 @@ async function fetchYahooPrice(ticker){
   for(const proxy of proxies){
     const url = proxy + encodeURIComponent(yahooUrl);
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 8000);
+    const tid = setTimeout(() => ctrl.abort(), 15000);
     try {
       let res;
       try {
@@ -2509,7 +2509,7 @@ async function fetchYahooPrice(ticker){
       return { price: parseFloat(price), date: dt.toISOString().slice(0,10), time: dt.toTimeString().slice(0,8) };
     } catch(e){
       if(e.message && e.message.includes("Ticker inconnu")) throw e;
-      if(e.name === "AbortError") lastErr = new Error("Timeout proxy (>8s)");
+      if(e.name === "AbortError") lastErr = new Error("Timeout proxy (>15s)");
       else lastErr = e;
     }
   }
@@ -2524,7 +2524,7 @@ async function fetchTwelveDataPrice(ticker){
   if(exchange) url += `&exchange=${encodeURIComponent(exchange)}`;
 
   const ctrl = new AbortController();
-  const tid = setTimeout(() => ctrl.abort(), 10000);
+  const tid = setTimeout(() => ctrl.abort(), 15000);
   let res;
   try {
     res = await fetch(url, {cache:"no-store", signal: ctrl.signal});
@@ -2595,7 +2595,7 @@ async function fetchStooqPrice(ticker){
   for(const proxy of proxies){
     const url = proxy + encodeURIComponent(stooqUrl);
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 8000); // 8s timeout per proxy
+    const tid = setTimeout(() => ctrl.abort(), 15000); // 15s timeout per proxy (public proxies can be slow)
     try {
       let res;
       try {
@@ -2622,7 +2622,7 @@ async function fetchStooqPrice(ticker){
     } catch(e){
       // Hard errors (ticker unknown) bubble up
       if(e.message && e.message.includes("Ticker inconnu")) throw e;
-      if(e.name === "AbortError") lastErr = new Error("Timeout proxy (>8s)");
+      if(e.name === "AbortError") lastErr = new Error("Timeout proxy (>15s)");
       else lastErr = e;
       // Continue to next proxy
     }
