@@ -333,6 +333,21 @@
   .mage-auto-badge::before{
     content:"⚡";font-size:10px;filter:drop-shadow(0 0 2px currentColor);
   }
+  .mage-solo-badge{
+    display:inline-flex;align-items:center;gap:3px;
+    font-family:'Cinzel',serif;font-size:9px;
+    letter-spacing:.15em;text-transform:uppercase;
+    padding:1px 6px;
+    background:rgba(168,152,120,0.12);
+    border:1px solid rgba(168,152,120,0.3);
+    border-radius:2px;
+    color:var(--gold-pale);
+    margin-left:6px;vertical-align:2px;
+    opacity:0.8;
+  }
+  .mage-solo-badge::before{
+    content:"◈";font-size:10px;
+  }
 
   /* Generic panel (used for chart, ladder) */
   .panel{
@@ -1112,6 +1127,12 @@
         <input type="text" id="setProxy" placeholder="Laisser vide = cascade auto (corsproxy, allorigins, codetabs)">
         <div class="hint" style="opacity:.7">Ex : <code style="color:var(--gold-pale)">https://corsproxy.io/?url=</code> si tu veux forcer un proxy spécifique</div>
       </div>
+
+      <div class="field" style="margin-top:20px;padding-top:18px;border-top:1px solid rgba(201,160,74,0.2)">
+        <label>⚔ Mages dans le Tournoi</label>
+        <div class="hint" style="margin-bottom:10px;">Décoche les mages dont le capital n'est PAS investi (compte commun, réserve, etc). Leur valeur apparaitra dans la guilde mais pas dans le classement vs rivaux.</div>
+        <div id="tournamentMagesList" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
     </div>
 
     <div class="scroll-actions">
@@ -1408,6 +1429,7 @@ const DEFAULT_STATE = {
     polymarket: null,   // { lastValue, lastFetch, breakdown }
     crypto: null,
   },
+  excludedFromTournament: ["common"],  // Mages whose balance is NOT invested capital (joint account, etc.)
   lastUpdate: null,
   prevTotal: 0,
   proxyUrl: "",
@@ -2249,6 +2271,16 @@ function ensurePositionsShape(id){
 function getTotal(){
   return ACCOUNT_DEFS.reduce((s,def) => s + getAccountValue(def.id), 0);
 }
+function isExcludedFromTournament(id){
+  return Array.isArray(state.excludedFromTournament) && state.excludedFromTournament.includes(id);
+}
+function getInvestedTotal(){
+  // Sum of mages that are actual investment capital (excludes joint account, etc.)
+  return ACCOUNT_DEFS.reduce((s, def) => {
+    if(isExcludedFromTournament(def.id)) return s;
+    return s + getAccountValue(def.id);
+  }, 0);
+}
 function getRank(total){
   let current = RANKS[0], next = null;
   for(let i=0; i<RANKS.length; i++){
@@ -2368,6 +2400,9 @@ function renderMages(){
     const walletAddr = (state.wallets && state.wallets[def.id]) || "";
     const hasAutoWallet = walletAddr.trim() !== "";
     const autoBadge = hasAutoWallet ? `<span class="mage-auto-badge" title="Wallet auto-fetch : ${walletAddr.slice(0,6)}…${walletAddr.slice(-4)}">Auto</span>` : "";
+    // Solo indicator (excluded from tournament)
+    const isSolo = isExcludedFromTournament(def.id);
+    const soloBadge = isSolo ? `<span class="mage-solo-badge" title="Capital non-investi · hors tournoi de guildes">Solo</span>` : "";
 
     card.innerHTML = `
       <button class="arc-edit" title="${isPos?'Gérer positions':'Modifier'}">${isPos?'⌬':'✎'}</button>
@@ -2380,6 +2415,7 @@ function renderMages(){
           <div class="mage-name-row">
             <div class="mage-name" data-mage-id="${def.id}" title="Cliquer pour renommer">${mageName}</div>
             ${autoBadge}
+            ${soloBadge}
           </div>
           <div class="mage-title">${subtitle}</div>
           <div class="mage-magic">${def.magic}</div>
@@ -2615,11 +2651,11 @@ function renderAll(){
   renderLadder();
   renderQuests();
   renderChart();
-  // Expose dashboard snapshot for tournament.html (non-sensitive: just total + name)
+  // Expose dashboard snapshot for tournament.html (excludes mages flagged as non-invested capital)
   try {
     if(window.GDCommon && typeof window.GDCommon.writeSnapshot === "function"){
       window.GDCommon.writeSnapshot({
-        total: getTotal(),
+        total: getInvestedTotal(),
         guildName: state.guildName,
         guildMasterName: state.guildMasterName,
       });
@@ -2743,6 +2779,25 @@ function openSettings(){
   document.getElementById("setPolymarketWallet").value = (state.wallets && state.wallets.polymarket) || "";
   document.getElementById("setCryptoWallet").value = (state.wallets && state.wallets.crypto) || "";
   document.getElementById("setEnzymeVault").value = (state.wallets && state.wallets.enzymeVault) || "";
+
+  // Build mage inclusion toggle list
+  const listEl = document.getElementById("tournamentMagesList");
+  if(listEl){
+    const excluded = Array.isArray(state.excludedFromTournament) ? state.excludedFromTournament : [];
+    listEl.innerHTML = ACCOUNT_DEFS.map(def => {
+      const mageName = getMageName(def.id);
+      const isExcluded = excluded.includes(def.id);
+      return `
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-family:'EB Garamond',serif;font-size:14px;padding:6px 10px;background:rgba(10,6,17,0.3);border-radius:3px;">
+          <input type="checkbox" class="mage-include-cb" data-mage-id="${def.id}" ${isExcluded ? "" : "checked"} style="cursor:pointer;">
+          <span style="flex:1">
+            <b style="color:var(--gold-pale)">${mageName}</b>
+            <span style="color:var(--parchment-dim);font-size:12px;margin-left:6px">· ${def.name}</span>
+          </span>
+        </label>`;
+    }).join("");
+  }
+
   document.getElementById("settingsVeil").classList.add("show");
 }
 async function saveSettings(){
@@ -2753,6 +2808,15 @@ async function saveSettings(){
   const pmWallet = document.getElementById("setPolymarketWallet").value.trim();
   const cryptoWallet = document.getElementById("setCryptoWallet").value.trim();
   const enzymeVault = document.getElementById("setEnzymeVault").value.trim();
+
+  // Collect excluded mages
+  const excluded = [];
+  document.querySelectorAll(".mage-include-cb").forEach(cb => {
+    if(!cb.checked){
+      excluded.push(cb.dataset.mageId);
+    }
+  });
+
   state.guildName = name;
   state.goal = goal;
   state.proxyUrl = proxy;
@@ -2767,6 +2831,7 @@ async function saveSettings(){
   state.wallets.polymarket = pmWallet;
   state.wallets.crypto = cryptoWallet;
   state.wallets.enzymeVault = enzymeVault;
+  state.excludedFromTournament = excluded;
   await saveState();
   document.getElementById("settingsVeil").classList.remove("show");
   renderAll();
