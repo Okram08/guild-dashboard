@@ -1353,6 +1353,7 @@
   <div class="guild-foot">
     <div>⚜ Registre local chiffré · GitHub Pages · aucun serveur ⚜</div>
     <div class="foot-ctrls">
+      <button id="btnSeal" title="Chiffrer le grimoire avec un mot de passe">🔒 Sceller</button>
       <button id="btnExport">Exporter Grimoire</button>
       <button id="btnImport">Importer Grimoire</button>
       <input type="file" id="importFile" accept=".json" style="display:none">
@@ -2864,9 +2865,10 @@ const TOURNAMENT_STORAGE_KEY = "guildTournament.state";
 const JOURNAL_STORAGE_KEY = "guildJournal.state";
 const PROJECTION_STORAGE_KEY = "guildProjection.state";
 const ACHIEVEMENTS_STORAGE_KEY = "guildAchievements.state";
+const PROXY_URL_KEY = "guildDashboard.proxyUrl";
 
 function doExport(){
-  let tournamentState = null, journalState = null, projectionState = null, achievementsState = null;
+  let tournamentState = null, journalState = null, projectionState = null, achievementsState = null, proxyUrl = "";
   try {
     const raw = localStorage.getItem(TOURNAMENT_STORAGE_KEY);
     if(raw) tournamentState = JSON.parse(raw);
@@ -2883,9 +2885,12 @@ function doExport(){
     const raw = localStorage.getItem(ACHIEVEMENTS_STORAGE_KEY);
     if(raw) achievementsState = JSON.parse(raw);
   } catch(e){}
+  try {
+    proxyUrl = localStorage.getItem(PROXY_URL_KEY) || "";
+  } catch(e){}
 
   const payload = {
-    version: 2,
+    version: 3,
     exported: new Date().toISOString(),
     state,
     chronicle,
@@ -2893,6 +2898,7 @@ function doExport(){
     journalState,
     projectionState,
     achievementsState,
+    proxyUrl,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
   const url = URL.createObjectURL(blob);
@@ -2946,9 +2952,17 @@ function doImport(file){
           parts.push(`${n} couronne(s)`);
         } catch(err){ console.warn("Achievements state write fail", err); }
       }
+      if(typeof data.proxyUrl === "string" && data.proxyUrl.trim()){
+        try {
+          localStorage.setItem(PROXY_URL_KEY, data.proxyUrl.trim());
+          parts.push("proxy CF Worker");
+        } catch(err){ console.warn("Proxy URL write fail", err); }
+      }
 
       if(data.version === 1 || data.version === undefined){
         parts.push("(format v1 · extras non inclus)");
+      } else if(data.version === 2){
+        parts.push("(format v2 · proxy CF Worker non inclus)");
       }
 
       renderAll();
@@ -2973,6 +2987,46 @@ async function doReset(){
   localStorage.removeItem(ACHIEVEMENTS_STORAGE_KEY);
   localStorage.removeItem("guildDashboard.snapshot");
   location.reload();
+}
+
+async function doSeal(){
+  // If already encrypted: prompt for password change
+  // If not: prompt for new password to seal
+  const alreadyEncrypted = !!(meta && meta.encrypted && sessionKey);
+  if(alreadyEncrypted){
+    if(!confirm("Le grimoire est déjà scellé. Tu veux changer le mot de passe ?")) return;
+    const oldPass = prompt("Ancienne incantation (pour confirmer) :");
+    if(!oldPass) return;
+    try {
+      const k = await deriveKey(oldPass, meta.salt);
+      // Try to decrypt current state to verify
+      const enc = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      await decryptJSON(enc, k, meta.iv);
+      // OK, password correct
+    } catch(e){
+      toast("Mauvaise incantation — abandon");
+      return;
+    }
+  }
+  const newPass = prompt(alreadyEncrypted ? "Nouvelle incantation (min 4 caractères) :" : "Choisis une incantation pour sceller (min 4 caractères) :");
+  if(!newPass || newPass.length < 4){
+    toast("Incantation trop courte (min 4)");
+    return;
+  }
+  const confirmPass = prompt("Confirmer la nouvelle incantation :");
+  if(newPass !== confirmPass){
+    toast("Les incantations diffèrent — abandon");
+    return;
+  }
+  // Generate new salt/iv and re-encrypt
+  const salt = randB64(16);
+  const iv = randB64(12);
+  sessionKey = await deriveKey(newPass, salt);
+  meta = { encrypted: true, salt, iv };
+  localStorage.setItem(META_KEY, JSON.stringify(meta));
+  await saveState();
+  await saveChronicle();
+  toast(alreadyEncrypted ? "Incantation changée ✓" : "Sceau forgé — grimoire chiffré ✓", "epic");
 }
 
 /* ---------- Guild name editable ---------- */
@@ -3469,6 +3523,7 @@ function boot(){
     e.target.value = "";
   });
   document.getElementById("btnReset").addEventListener("click", doReset);
+  document.getElementById("btnSeal").addEventListener("click", doSeal);
 
   // Refresh all auto sources (Degiro positions + Polymarket + Crypto wallet)
   const refreshAllBtn = document.getElementById("btnRefreshAll");
