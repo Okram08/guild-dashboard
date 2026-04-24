@@ -244,6 +244,46 @@
       display: flex;
       gap: 6px;
     }
+
+    /* Risk stats pills (second line under assets) */
+    .guild-stats {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-family: 'Cinzel', serif;
+      font-size: 10.5px;
+      letter-spacing: 0.06em;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      color: var(--ink-dim);
+      cursor: help;
+      white-space: nowrap;
+    }
+    .stat-pill.muted { opacity: 0.7; }
+    .stat-pill.neutral { color: var(--ink); }
+    .stat-pill.good {
+      color: #86efac;
+      border-color: rgba(74, 222, 128, 0.28);
+      background: rgba(74, 222, 128, 0.06);
+    }
+    .stat-pill.warning {
+      color: #fcd34d;
+      border-color: rgba(252, 211, 77, 0.28);
+      background: rgba(252, 211, 77, 0.06);
+    }
+    .stat-pill.bad {
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.28);
+      background: rgba(239, 68, 68, 0.06);
+    }
     .icon-btn {
       width: 28px; height: 28px;
       border: 1px solid var(--border);
@@ -594,7 +634,7 @@ async function initTournament(){
 }
 
 /* -------- Guild creation -------- */
-async function createRivalGuild(name, theme, icon, assetsInput, announce=true){
+async function createRivalGuild(name, theme, icon, assetsInput, announce=true, backfill=true){
   if(!name || !name.trim()) throw new Error("Nom requis");
   if(!Array.isArray(assetsInput) || !assetsInput.length) throw new Error("Au moins 1 asset");
 
@@ -647,13 +687,140 @@ async function createRivalGuild(name, theme, icon, assetsInput, announce=true){
     lastInvested: currentInvested,
     lastFetch: Date.now(),
   };
+
+  // Attempt to backfill 6 months of history
+  //   If it fails, we keep the flat-start guild so user still sees something
+  if(backfill){
+    try {
+      const bf = await backfillGuildHistory(guild, currentInvested);
+      if(bf && bf.history && bf.history.length >= 3){
+        guild.injections = [bf.injection];
+        guild.history = bf.history;
+        guild.lastValue = bf.history[bf.history.length - 1].v;
+        guild.backfilled = true;
+      }
+    } catch(e){
+      console.warn("Backfill failed for", guild.name, "—", e.message);
+      // Keep flat-start guild as-is
+      if(announce) GDCommon.toast("⚠ Backfill échoué, démarrage à plat", 3500);
+    }
+  }
+
   state.rivalGuilds.push(guild);
   saveState();
   if(announce){
-    GDCommon.toast(`${guild.icon} ${guild.name} forgée`);
+    const bfNote = guild.backfilled ? " (avec 6 mois d'historique 📜)" : "";
+    GDCommon.toast(`${guild.icon} ${guild.name} forgée${bfNote}`);
     if(errors.length) GDCommon.toast("⚠ " + errors.join(" | "), 5000);
   }
   return guild;
+}
+
+/* -------- Backfill historical guild performance -------- */
+//   For each asset, fetch 6mo of weekly prices from Yahoo. Align timestamps.
+//   Compute virtual guild value at each point using: value_t = startCapital × Σ(weight × price_t / price_bfstart)
+//   Return { injection, history, errors }
+async function backfillGuildHistory(guild, startCapital){
+  const tickerHistories = {};
+  const errors = [];
+  // Fetch all tickers in parallel (capped)
+  const results = await Promise.allSettled(
+    guild.assets.map(a => GDCommon.fetchYahooHistory(a.ticker, "6mo", "1wk"))
+  );
+  for(let i = 0; i < results.length; i++){
+    const r = results[i];
+    const ticker = guild.assets[i].ticker;
+    if(r.status === "fulfilled" && r.value && r.value.series.length >= 2){
+      tickerHistories[ticker] = r.value.series;
+    } else {
+      errors.push(`${ticker}: ${r.reason ? r.reason.message : "vide"}`);
+    }
+  }
+  if(Object.keys(tickerHistories).length !== guild.assets.length){
+    throw new Error("Historique partiel : " + errors.join(" | "));
+  }
+
+  // Use first ticker's timestamps as the anchor, find closest prices for others within ±4 days
+  const baseTicker = guild.assets[0].ticker;
+  const baseSeries = tickerHistories[baseTicker];
+  if(baseSeries.length < 3) throw new Error("Historique trop court pour " + baseTicker);
+  const FOUR_DAYS = 4 * 24 * 3600 * 1000;
+
+  const snapshots = [];
+  for(const basePoint of baseSeries){
+    const snap = { t: basePoint.t, prices: { [baseTicker]: basePoint.price } };
+    let allFound = true;
+    for(const asset of guild.assets){
+      if(asset.ticker === baseTicker) continue;
+      const series = tickerHistories[asset.ticker];
+      let best = null;
+      for(const p of series){
+        const dt = Math.abs(p.t - basePoint.t);
+        if(dt <= FOUR_DAYS && (best === null || dt < Math.abs(best.t - basePoint.t))){
+          best = p;
+        }
+      }
+      if(best){
+        snap.prices[asset.ticker] = best.price;
+      } else {
+        allFound = false;
+        break;
+      }
+    }
+    if(allFound) snapshots.push(snap);
+  }
+
+  if(snapshots.length < 3){
+    throw new Error("Alignement temporel insuffisant entre tickers");
+  }
+
+  // First snapshot = virtual injection at backfill start
+  const first = snapshots[0];
+  const injection = {
+    t: first.t,
+    amount: startCapital,
+    prices: { ...first.prices },
+  };
+
+  // Build history at each weekly snapshot
+  const history = snapshots.map(snap => {
+    let value = 0;
+    for(const asset of guild.assets){
+      const pThen = first.prices[asset.ticker];
+      const pAtT  = snap.prices[asset.ticker];
+      if(!pThen || !pAtT) continue;
+      const w = asset.weight / 100;
+      value += (startCapital * w) * (pAtT / pThen);
+    }
+    return { t: snap.t, v: value, i: startCapital };
+  });
+
+  return { injection, history, errors };
+}
+
+/* -------- Regenerate backfill for an existing guild -------- */
+async function regenerateBackfill(guildId){
+  const guild = state.rivalGuilds.find(g => g.id === guildId);
+  if(!guild) return;
+  GDCommon.toast(`🕰 Backfill de ${guild.name}…`, 2500);
+  const startCapital = (guild.injections && guild.injections[0] && guild.injections[0].amount) || state.startCapital;
+  try {
+    const bf = await backfillGuildHistory(guild, startCapital);
+    if(bf && bf.history && bf.history.length >= 3){
+      // Preserve DCA injections after the first one
+      const dcas = (guild.injections || []).slice(1);
+      guild.injections = [bf.injection, ...dcas];
+      guild.history = bf.history;
+      guild.lastValue = bf.history[bf.history.length - 1].v;
+      guild.lastInvested = startCapital + dcas.reduce((s,i) => s + i.amount, 0);
+      guild.backfilled = true;
+      saveState();
+      GDCommon.toast(`✓ ${guild.name} : ${bf.history.length} points d'histoire chargés`);
+      await refreshAll();
+    }
+  } catch(e){
+    GDCommon.toast(`✗ Backfill échoué : ${e.message}`, 5000);
+  }
 }
 
 /* -------- Refresh -------- */
@@ -835,6 +1002,102 @@ async function refreshAll(){
   }
 }
 
+/* -------- Risk stats computation -------- */
+
+// Risk-free rate benchmark (Belfius Flow savings account, 2.80% gross)
+const RISK_FREE_RATE = 0.028;
+// Minimum data points for meaningful stats (below this → "insuffisant")
+const MIN_STATS_POINTS = 7;
+
+// Compute daily TWR-like returns, removing DCA injections from value changes
+//   history: [{t, v, i}]  where v=total value, i=total invested at that moment
+//   Returns: [{t, ret, isInjection}]
+function computeReturns(history){
+  if(!Array.isArray(history) || history.length < 2) return [];
+  const rets = [];
+  for(let k = 1; k < history.length; k++){
+    const prev = history[k-1];
+    const curr = history[k];
+    if(!prev || !curr || !prev.v || prev.v <= 0) continue;
+    const prevI = prev.i != null ? prev.i : 0;
+    const currI = curr.i != null ? curr.i : prevI;
+    const injection = Math.max(0, currI - prevI);
+    const marketDelta = (curr.v - prev.v) - injection;
+    const dailyReturn = marketDelta / prev.v;
+    rets.push({ t: curr.t, ret: dailyReturn, isInjection: injection > 0 });
+  }
+  return rets;
+}
+
+function computeRiskStats(history){
+  const empty = { mdd: 0, vol: 0, sharpe: 0, annualReturn: 0, dataPoints: history?.length || 0, insufficient: true };
+  if(!Array.isArray(history) || history.length < MIN_STATS_POINTS) return empty;
+
+  const rets = computeReturns(history);
+  if(rets.length < MIN_STATS_POINTS - 1) return empty;
+
+  const dailyRets = rets.map(r => r.ret);
+
+  // Cumulative market-only series (starts at 1)
+  let cum = 1;
+  let peak = 1;
+  let mdd = 0;
+  const cumSeries = [1];
+  for(const r of dailyRets){
+    cum *= (1 + r);
+    cumSeries.push(cum);
+    if(cum > peak) peak = cum;
+    const dd = (cum - peak) / peak;
+    if(dd < mdd) mdd = dd;
+  }
+
+  // Volatility — std dev of per-period returns, annualized via adaptive factor
+  //   Backfilled history uses weekly points (~52/yr); live refreshes are daily (~252/yr)
+  //   Average gap between observations determines the right annualization factor
+  const n = dailyRets.length;
+  const mean = dailyRets.reduce((s,r) => s+r, 0) / n;
+  const variance = dailyRets.reduce((s,r) => s + (r-mean)*(r-mean), 0) / n;
+  const stdDev = Math.sqrt(variance);
+  // Determine observations-per-year from actual time span
+  const firstT0 = history[0].t;
+  const lastT0 = history[history.length - 1].t;
+  const totalDays = Math.max(1, (lastT0 - firstT0) / (1000 * 60 * 60 * 24));
+  const avgGapDays = totalDays / n;
+  const periodsPerYear = 365 / Math.max(0.5, avgGapDays);
+  const annualVol = stdDev * Math.sqrt(periodsPerYear);
+
+  // Annualized return via compounding over period
+  const firstT = history[0].t;
+  const lastT = history[history.length - 1].t;
+  const days = Math.max(1, (lastT - firstT) / (1000 * 60 * 60 * 24));
+  const years = Math.max(days / 365, 1/365);
+  const totalReturn = cum - 1;
+  const annualReturn = Math.pow(Math.max(0.0001, 1 + totalReturn), 1/years) - 1;
+
+  // Sharpe Ratio : (Return - RiskFreeRate) / Vol
+  const sharpe = annualVol > 0.0001 ? (annualReturn - RISK_FREE_RATE) / annualVol : 0;
+
+  return {
+    mdd: mdd * 100,
+    vol: annualVol * 100,
+    sharpe,
+    annualReturn: annualReturn * 100,
+    dataPoints: history.length,
+    insufficient: false,
+  };
+}
+
+// User history augmented with invested amount at each point
+function userHistoryWithInvested(){
+  const injections = state.userInjections || [];
+  return (state.userValueHistory || []).map(h => {
+    const invested = injections
+      .filter(inj => inj.t <= h.t)
+      .reduce((s, inj) => s + inj.amount, 0);
+    return { t: h.t, v: h.v, i: invested };
+  });
+}
+
 /* -------- Rendering -------- */
 function totalUserInvested(){
   return (state.userInjections || []).reduce((s,i) => s + i.amount, 0);
@@ -874,6 +1137,8 @@ function buildRankingRows(){
       performance: invested > 0 ? (value - invested) / invested : 0,
       assetsLabel: g.assets.map(a => `${a.ticker} ${Math.round(a.weight)}%`).join(" · "),
       dcaCount: Math.max(0, (g.injections || []).length - 1),
+      backfilled: !!g.backfilled,
+      stats: computeRiskStats(g.history || []),
       raw: g,
     });
   }
@@ -893,6 +1158,7 @@ function buildRankingRows(){
       performance: user.performance,
       assetsLabel: "Valeur réelle · capital injecté " + GDCommon.fmt(user.invested) + " €",
       dcaCount,
+      stats: computeRiskStats(userHistoryWithInvested()),
       raw: { snapshot: snap, startValue: state.userStartValue },
     });
   } else {
@@ -907,6 +1173,7 @@ function buildRankingRows(){
       performance: 0,
       assetsLabel: "Ouvre le dashboard au moins une fois pour activer le suivi",
       dcaCount: 0,
+      stats: null,
       raw: null,
     });
   }
@@ -932,11 +1199,43 @@ function renderRanking(){
     const pc = perfClass(r.performance);
     const pos = idx + 1;
     const dcaBadge = r.dcaCount > 0 ? `<span style="color:var(--ink-dim);font-size:11px;margin-left:8px;">💰 ${r.dcaCount} DCA</span>` : "";
+    const bfBadge = r.backfilled ? `<span style="color:var(--ink-dim);font-size:11px;margin-left:8px;" title="Historique 6 mois chargé">📜</span>` : "";
+    const bfBtn = (!isYou && !r.backfilled) ? `<button class="icon-btn" onclick="regenerateBackfill('${r.id}')" title="Charger 6 mois d'historique">🕰</button>` : "";
     const actions = isYou ? "" : `
       <div class="guild-actions">
+        ${bfBtn}
         <button class="icon-btn" onclick="editGuild('${r.id}')" title="Modifier">✎</button>
         <button class="icon-btn" onclick="deleteGuild('${r.id}')" title="Dissoudre">🗑</button>
       </div>`;
+
+    // Risk stats pills
+    let statsHtml = "";
+    if(r.stats){
+      if(r.stats.insufficient){
+        statsHtml = `<div class="guild-stats"><span class="stat-pill muted" title="Il faut au moins ${MIN_STATS_POINTS} jours de données">📊 Stats dans ${MIN_STATS_POINTS - (r.stats.dataPoints || 0)} jour(s)</span></div>`;
+      } else {
+        const s = r.stats;
+        const mddClass = s.mdd < -15 ? "bad" : s.mdd < -5 ? "warning" : "neutral";
+        const volClass = s.vol > 40 ? "bad" : s.vol > 20 ? "warning" : "neutral";
+        const sharpeClass = s.sharpe >= 1 ? "good" : s.sharpe >= 0 ? "neutral" : "bad";
+        statsHtml = `
+          <div class="guild-stats">
+            <span class="stat-pill ${mddClass}" title="Max Drawdown · plus grosse chute depuis un pic">
+              📉 MDD ${s.mdd.toFixed(1)}%
+            </span>
+            <span class="stat-pill ${volClass}" title="Volatilité annualisée · plus c'est bas, plus c'est stable">
+              📊 Vol ${s.vol.toFixed(0)}%
+            </span>
+            <span class="stat-pill ${sharpeClass}" title="Sharpe Ratio · rendement ajusté au risque. >1 = excellent, 0 = aussi bien que l'épargne, <0 = pire que l'épargne">
+              ⚖ Sharpe ${s.sharpe.toFixed(2)}
+            </span>
+            <span class="stat-pill muted" title="Rendement annualisé">
+              📈 ${s.annualReturn >= 0 ? "+" : ""}${s.annualReturn.toFixed(1)}%/an
+            </span>
+          </div>`;
+      }
+    }
+
     return `
       <div class="guild-card ${isYou ? 'you' : ''}" style="--theme-color: ${theme.color}">
         <div class="rank-position ${pos === 1 ? 'pos-1' : ''}">${pos}</div>
@@ -945,8 +1244,10 @@ function renderRanking(){
             <span class="guild-icon">${r.icon}</span>
             ${r.name}
             ${dcaBadge}
+            ${bfBadge}
           </div>
           <div class="guild-assets">${r.assetsLabel}</div>
+          ${statsHtml}
         </div>
         <div class="guild-value">${GDCommon.fmt(r.value)}<span class="currency">€</span></div>
         <div class="guild-perf ${pc}">${GDCommon.fmtPct(r.performance * 100)}</div>
@@ -1009,8 +1310,17 @@ function renderChart(){
       scales: {
         x: {
           type: "time",
-          time: { unit: "day", displayFormats: { day: "dd MMM" } },
-          ticks: { color: "#a89878", font: { family: "'EB Garamond', serif" } },
+          time: {
+            displayFormats: { day: "dd MMM", week: "dd MMM", month: "MMM yy" },
+            tooltipFormat: "dd MMM yyyy",
+          },
+          ticks: {
+            color: "#a89878",
+            font: { family: "'EB Garamond', serif" },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 10,
+          },
           grid: { color: "rgba(212, 167, 68, 0.05)" },
         },
         y: {
