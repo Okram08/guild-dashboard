@@ -299,6 +299,38 @@
     font-style:italic;font-family:'EB Garamond',serif;
     margin-left:8px;
   }
+  .refresh-all-btn{
+    background:linear-gradient(180deg,rgba(20,20,31,0.8),rgba(13,10,18,0.95));
+    border:1px solid var(--gold-dim);
+    color:var(--gold-pale);
+    font-family:'Cinzel',serif;font-size:10px;
+    letter-spacing:.25em;text-transform:uppercase;
+    padding:8px 14px;cursor:pointer;
+    border-radius:2px;transition:all .2s;
+  }
+  .refresh-all-btn:hover{
+    background:linear-gradient(180deg,rgba(139,15,27,0.4),rgba(74,0,8,0.6));
+    border-color:var(--gold);
+    color:var(--gold-bright);
+    box-shadow:0 0 14px rgba(240,199,92,0.2);
+  }
+  .refresh-all-btn:disabled{opacity:.5;cursor:wait}
+
+  /* Auto-fetch indicator on mage card */
+  .mage-auto-badge{
+    display:inline-flex;align-items:center;gap:3px;
+    font-family:'Cinzel',serif;font-size:9px;
+    letter-spacing:.15em;text-transform:uppercase;
+    padding:1px 6px;
+    background:rgba(240,199,92,0.15);
+    border:1px solid rgba(240,199,92,0.3);
+    border-radius:2px;
+    color:var(--gold-bright);
+    margin-left:6px;vertical-align:2px;
+  }
+  .mage-auto-badge::before{
+    content:"⚡";font-size:10px;filter:drop-shadow(0 0 2px currentColor);
+  }
 
   /* Generic panel (used for chart, ladder) */
   .panel{
@@ -1038,6 +1070,21 @@
     </div>
 
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(201,160,74,0.2)">
+      <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">◈ Wallets On-Chain</div>
+
+      <div class="field">
+        <label>Wallet Polymarket (Polygon)</label>
+        <input type="text" id="setPolymarketWallet" placeholder="0x...">
+        <div class="hint">Valeur auto depuis data-api.polymarket.com (public, sans auth)</div>
+      </div>
+      <div class="field">
+        <label>Wallet Crypto (Ethereum)</label>
+        <input type="text" id="setCryptoWallet" placeholder="0x...">
+        <div class="hint">Valeur auto depuis Ethplorer (ETH + ERC20, via proxy)</div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(201,160,74,0.2)">
       <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">◈ Oracle des Cours</div>
 
       <div style="padding:10px 12px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:2px;margin-bottom:14px;font-size:12px;color:var(--parchment);line-height:1.5">
@@ -1225,7 +1272,7 @@
     <div class="section-head">
       <h2>Les Six Mages de la Guilde</h2>
       <div class="line"></div>
-      <div class="section-sub">Chacun maîtrise sa propre magie et progresse à son rythme</div>
+      <button class="refresh-all-btn" id="btnRefreshAll" title="Refresh Degiro + Polymarket + Crypto">🔄 Tout actualiser</button>
     </div>
     <div class="arc-grid" id="arcGrid"></div>
   </div>
@@ -1337,10 +1384,18 @@ const ACCOUNT_DEFS = [
 /* ---------- Default state ---------- */
 const DEFAULT_STATE = {
   guildName: "Guilde du Mille Royaume",
-  guildMasterName: "Okram",       // The player's name (Guild Master)
-  mageNames: {},                  // Custom names per mage: { id: "custom name" }
+  guildMasterName: "Okram",
+  mageNames: {},
   goal: 1000000,
   accounts: Object.fromEntries(ACCOUNT_DEFS.map(a => [a.id, 0])),
+  wallets: {            // On-chain wallet addresses per mage
+    polymarket: "",
+    crypto: "",
+  },
+  walletsMeta: {        // Last fetch metadata
+    polymarket: null,   // { lastValue, lastFetch, breakdown }
+    crypto: null,
+  },
   lastUpdate: null,
   prevTotal: 0,
   proxyUrl: "",
@@ -1586,6 +1641,208 @@ function mageSvg(type, color){
   </svg>`;
 }
 
+/* ---------- On-chain wallet fetchers ---------- */
+let _usdEurCache = { rate: 0.92, fetchedAt: 0 };
+
+async function getUsdEurRate(){
+  // Cache rate for 1 hour
+  if(_usdEurCache.rate && (Date.now() - _usdEurCache.fetchedAt < 3600000)){
+    return _usdEurCache.rate;
+  }
+  try {
+    const res = await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR");
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const rate = data && data.rates && data.rates.EUR;
+    if(rate && rate > 0){
+      _usdEurCache = { rate, fetchedAt: Date.now() };
+      return rate;
+    }
+  } catch(e){
+    console.warn("USD/EUR fetch failed, using fallback 0.92", e);
+  }
+  return _usdEurCache.rate || 0.92;
+}
+
+async function fetchPolymarketValue(address){
+  const addr = address.trim().toLowerCase();
+  if(!/^0x[a-f0-9]{40}$/.test(addr)) throw new Error("Adresse Polymarket invalide");
+  const url = `https://data-api.polymarket.com/value?user=${addr}`;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 10000);
+  let res;
+  try {
+    res = await fetch(url, {cache:"no-store", signal:ctrl.signal});
+  } catch(e){
+    clearTimeout(tid);
+    if(e.name === "AbortError") throw new Error("Timeout Polymarket");
+    throw new Error("Polymarket inaccessible");
+  }
+  clearTimeout(tid);
+  if(!res.ok) throw new Error("Polymarket HTTP "+res.status);
+  const data = await res.json();
+  // Response is typically [{user, value}] or {value}
+  let valueUsd = 0;
+  if(Array.isArray(data) && data.length > 0){
+    valueUsd = parseFloat(data[0].value) || 0;
+  } else if(data && data.value != null){
+    valueUsd = parseFloat(data.value) || 0;
+  }
+  // Polymarket values are in USDC (~= USD). Convert to EUR.
+  const rate = await getUsdEurRate();
+  return { valueEur: valueUsd * rate, valueUsd, rate };
+}
+
+async function fetchCryptoWalletValue(address){
+  const addr = address.trim().toLowerCase();
+  if(!/^0x[a-f0-9]{40}$/.test(addr)) throw new Error("Adresse ETH invalide");
+  const ethplorerUrl = `https://api.ethplorer.io/getAddressInfo/${addr}?apiKey=freekey`;
+  // Ethplorer doesn't serve CORS - we MUST use a proxy
+  const DEFAULT_PROXIES = [
+    "https://corsproxy.io/?url=",
+    "https://api.allorigins.win/raw?url=",
+    "https://api.codetabs.com/v1/proxy?quest=",
+  ];
+  const custom = (state.proxyUrl || "").trim();
+  const proxies = custom ? [custom] : DEFAULT_PROXIES;
+
+  let data = null;
+  let lastErr = null;
+  for(const proxy of proxies){
+    const url = proxy + encodeURIComponent(ethplorerUrl);
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const res = await fetch(url, {cache:"no-store", signal:ctrl.signal});
+      clearTimeout(tid);
+      if(!res.ok){ lastErr = new Error("Proxy HTTP "+res.status); continue; }
+      const body = await res.json();
+      if(body && body.error){ lastErr = new Error("Ethplorer: "+(body.error.message||"erreur")); continue; }
+      data = body;
+      break;
+    } catch(e){
+      clearTimeout(tid);
+      lastErr = e.name === "AbortError" ? new Error("Timeout proxy") : e;
+    }
+  }
+  if(!data) throw lastErr || new Error("Tous les proxies ont échoué");
+
+  let valueUsd = 0;
+  const breakdown = [];
+  // ETH native balance
+  if(data.ETH && typeof data.ETH.balance === "number" && data.ETH.price && data.ETH.price.rate){
+    const v = data.ETH.balance * data.ETH.price.rate;
+    valueUsd += v;
+    breakdown.push({ symbol:"ETH", balance:data.ETH.balance, priceUsd:data.ETH.price.rate, valueUsd:v });
+  }
+  // ERC20 tokens (skip those without a USD price — usually spam)
+  if(Array.isArray(data.tokens)){
+    for(const t of data.tokens){
+      const info = t.tokenInfo;
+      if(!info || !info.price || !info.price.rate) continue;
+      const decimals = parseInt(info.decimals) || 18;
+      const balance = parseFloat(t.balance) / Math.pow(10, decimals);
+      if(!balance || balance <= 0) continue;
+      const priceUsd = parseFloat(info.price.rate);
+      const v = balance * priceUsd;
+      if(v < 0.01) continue; // dust
+      valueUsd += v;
+      breakdown.push({ symbol: info.symbol || "?", balance, priceUsd, valueUsd:v });
+    }
+  }
+  // Sort breakdown by value descending
+  breakdown.sort((a,b) => b.valueUsd - a.valueUsd);
+  const rate = await getUsdEurRate();
+  return { valueEur: valueUsd * rate, valueUsd, rate, breakdown };
+}
+
+/* ---------- Refresh all auto sources ---------- */
+async function refreshAllSources(){
+  const btn = document.getElementById("btnRefreshAll");
+  if(btn){ btn.disabled = true; btn.textContent = "🔄 ..."; }
+
+  const prevTotal = getTotal();
+  const prevRank = getRank(prevTotal).current;
+  const results = [];
+
+  // 1. Degiro positions via Yahoo/Twelve Data
+  const degiro = state.accounts.degiro;
+  if(degiro && Array.isArray(degiro.positions) && degiro.positions.length > 0){
+    let ok = 0, fail = 0;
+    for(const p of degiro.positions){
+      try {
+        const r = await fetchPrice(p.ticker);
+        p.lastPrice = r.price;
+        p.lastPriceTime = Date.now();
+        p.manual = false;
+        ok++;
+      } catch(e){
+        fail++;
+        console.warn("Degiro refresh fail", p.ticker, e.message);
+      }
+    }
+    results.push({source:"Degiro", ok: ok > 0, detail: `${ok}/${ok+fail}`});
+  }
+
+  // 2. Polymarket via public API
+  const pmWallet = (state.wallets && state.wallets.polymarket || "").trim();
+  if(pmWallet){
+    try {
+      const r = await fetchPolymarketValue(pmWallet);
+      state.accounts.polymarket = Math.round(r.valueEur * 100) / 100;
+      if(!state.walletsMeta) state.walletsMeta = {};
+      state.walletsMeta.polymarket = { lastValue: state.accounts.polymarket, lastFetch: Date.now(), rate: r.rate };
+      results.push({source:"Polymarket", ok:true, detail: fmt(state.accounts.polymarket) + " €"});
+    } catch(e){
+      results.push({source:"Polymarket", ok:false, detail: e.message});
+      console.warn("Polymarket fail", e);
+    }
+  }
+
+  // 3. Crypto ETH wallet via Ethplorer (proxied)
+  const cryptoWallet = (state.wallets && state.wallets.crypto || "").trim();
+  if(cryptoWallet){
+    try {
+      const r = await fetchCryptoWalletValue(cryptoWallet);
+      state.accounts.crypto = Math.round(r.valueEur * 100) / 100;
+      if(!state.walletsMeta) state.walletsMeta = {};
+      state.walletsMeta.crypto = { lastValue: state.accounts.crypto, lastFetch: Date.now(), breakdown: r.breakdown, rate: r.rate };
+      results.push({source:"Crypto", ok:true, detail: fmt(state.accounts.crypto) + " €"});
+    } catch(e){
+      results.push({source:"Crypto", ok:false, detail: e.message});
+      console.warn("Crypto fail", e);
+    }
+  }
+
+  state.lastUpdate = Date.now();
+  await saveState();
+  await autoRecordChronicle();
+  renderAll();
+
+  if(btn){ btn.disabled = false; btn.textContent = "🔄 Tout actualiser"; }
+
+  // Toast summary
+  if(results.length === 0){
+    toast("Aucune source auto configurée");
+    return;
+  }
+  const okResults = results.filter(r => r.ok);
+  const failResults = results.filter(r => !r.ok);
+  if(failResults.length === 0){
+    toast(`✓ ${okResults.length} source${okResults.length>1?"s":""} actualisée${okResults.length>1?"s":""}`, "epic");
+  } else {
+    const failStr = failResults.map(r => r.source).join(", ");
+    toast(`${okResults.length} ok · échec: ${failStr}`);
+  }
+
+  // Rank up check
+  const newTotal = getTotal();
+  const newRank = getRank(newTotal).current;
+  if(newRank.sym !== prevRank.sym && RANKS.indexOf(newRank) > RANKS.indexOf(prevRank)){
+    setTimeout(() => ascend(newRank), 800);
+  }
+}
+
 function fmt(n){
   if(n == null || isNaN(n)) n = 0;
   return new Intl.NumberFormat("fr-FR", {maximumFractionDigits:0}).format(Math.round(n));
@@ -1734,6 +1991,11 @@ function renderMages(){
 
     const subtitle = isPos ? `${def.title} · ${posCount} position${posCount>1?"s":""}` : def.title;
 
+    // Auto-wallet indicator
+    const walletAddr = (state.wallets && state.wallets[def.id]) || "";
+    const hasAutoWallet = walletAddr.trim() !== "";
+    const autoBadge = hasAutoWallet ? `<span class="mage-auto-badge" title="Wallet auto-fetch : ${walletAddr.slice(0,6)}…${walletAddr.slice(-4)}">Auto</span>` : "";
+
     card.innerHTML = `
       <button class="arc-edit" title="${isPos?'Gérer positions':'Modifier'}">${isPos?'⌬':'✎'}</button>
       <div class="mage-head">
@@ -1744,6 +2006,7 @@ function renderMages(){
         <div class="mage-identity">
           <div class="mage-name-row">
             <div class="mage-name" data-mage-id="${def.id}" title="Cliquer pour renommer">${mageName}</div>
+            ${autoBadge}
           </div>
           <div class="mage-title">${subtitle}</div>
           <div class="mage-magic">${def.magic}</div>
@@ -2094,6 +2357,8 @@ function openSettings(){
   document.getElementById("setGoal").value = state.goal;
   document.getElementById("setProxy").value = state.proxyUrl || "";
   document.getElementById("setTwelveKey").value = state.twelveDataKey || "";
+  document.getElementById("setPolymarketWallet").value = (state.wallets && state.wallets.polymarket) || "";
+  document.getElementById("setCryptoWallet").value = (state.wallets && state.wallets.crypto) || "";
   document.getElementById("settingsVeil").classList.add("show");
 }
 async function saveSettings(){
@@ -2101,14 +2366,19 @@ async function saveSettings(){
   const goal = parseFloat(document.getElementById("setGoal").value) || 1000000;
   const proxy = document.getElementById("setProxy").value.trim();
   const twelveKey = document.getElementById("setTwelveKey").value.trim();
+  const pmWallet = document.getElementById("setPolymarketWallet").value.trim();
+  const cryptoWallet = document.getElementById("setCryptoWallet").value.trim();
   state.guildName = name;
   state.goal = goal;
   state.proxyUrl = proxy;
   state.twelveDataKey = twelveKey;
+  if(!state.wallets) state.wallets = {};
+  state.wallets.polymarket = pmWallet;
+  state.wallets.crypto = cryptoWallet;
   await saveState();
   document.getElementById("settingsVeil").classList.remove("show");
   renderAll();
-  toast(twelveKey ? "Oracle Twelve Data configuré" : "Conseil scellé");
+  toast("Conseil scellé");
 }
 
 /* ---------- Export / Import ---------- */
@@ -2642,6 +2912,10 @@ function boot(){
     e.target.value = "";
   });
   document.getElementById("btnReset").addEventListener("click", doReset);
+
+  // Refresh all auto sources (Degiro positions + Polymarket + Crypto wallet)
+  const refreshAllBtn = document.getElementById("btnRefreshAll");
+  if(refreshAllBtn) refreshAllBtn.addEventListener("click", refreshAllSources);
 
   // Positions modal
   document.getElementById("posClose").addEventListener("click", closePositions);
