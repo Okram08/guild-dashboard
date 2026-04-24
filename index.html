@@ -1078,9 +1078,9 @@
         <div class="hint">Valeur auto depuis data-api.polymarket.com (public, sans auth)</div>
       </div>
       <div class="field">
-        <label>Wallet Crypto (Ethereum)</label>
+        <label>Wallet Crypto (Ethereum / multichain)</label>
         <input type="text" id="setCryptoWallet" placeholder="0x...">
-        <div class="hint">Valeur auto depuis Ethplorer (ETH + ERC20, via proxy)</div>
+        <div class="hint">Valeur auto depuis DeBank (wallet + DeFi · Enzyme, Morpho, Aave, Uniswap, toutes chaines)</div>
       </div>
     </div>
 
@@ -1664,9 +1664,58 @@ async function getUsdEurRate(){
   return _usdEurCache.rate || 0.92;
 }
 
+/* Fetch USDC balance on Polygon for a given address (Polymarket cash) */
+async function fetchPolygonUsdcBalance(address){
+  const addr = address.toLowerCase().replace("0x","");
+  // balanceOf(address) selector + 32-byte padded address
+  const callData = "0x70a08231" + addr.padStart(64, "0");
+  // Polymarket uses bridged USDC.e (legacy) or native USDC (newer)
+  const USDC_CONTRACTS = [
+    "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC.e bridged
+    "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Native USDC
+  ];
+  const RPCS = [
+    "https://polygon-rpc.com",
+    "https://polygon.llamarpc.com",
+    "https://rpc.ankr.com/polygon",
+  ];
+  let total = 0;
+  for(const contract of USDC_CONTRACTS){
+    for(const rpc of RPCS){
+      try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 10000);
+        const res = await fetch(rpc, {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({
+            jsonrpc:"2.0", id:1, method:"eth_call",
+            params:[{to: contract, data: callData}, "latest"]
+          }),
+          signal: ctrl.signal,
+        });
+        clearTimeout(tid);
+        if(!res.ok) continue;
+        const j = await res.json();
+        if(j.error) continue;
+        const hex = j.result;
+        if(!hex || hex === "0x") break;
+        const balance = parseInt(hex, 16) / 1e6; // USDC has 6 decimals
+        total += balance;
+        break; // got it for this contract, try next contract
+      } catch(e){
+        // try next RPC
+      }
+    }
+  }
+  return total;
+}
+
 async function fetchPolymarketValue(address){
   const addr = address.trim().toLowerCase();
   if(!/^0x[a-f0-9]{40}$/.test(addr)) throw new Error("Adresse Polymarket invalide");
+
+  // 1) Positions value from Polymarket data API
   const url = `https://data-api.polymarket.com/value?user=${addr}`;
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), 15000);
@@ -1681,39 +1730,90 @@ async function fetchPolymarketValue(address){
   clearTimeout(tid);
   if(!res.ok) throw new Error("Polymarket HTTP "+res.status);
   const data = await res.json();
-  // Response is typically [{user, value}] or {value}
-  let valueUsd = 0;
+  let positionsUsd = 0;
   if(Array.isArray(data) && data.length > 0){
-    valueUsd = parseFloat(data[0].value) || 0;
+    positionsUsd = parseFloat(data[0].value) || 0;
   } else if(data && data.value != null){
-    valueUsd = parseFloat(data.value) || 0;
+    positionsUsd = parseFloat(data.value) || 0;
   }
-  // Polymarket values are in USDC (~= USD). Convert to EUR.
+
+  // 2) USDC cash on Polygon (not included in /value endpoint)
+  let usdcBalance = 0;
+  try {
+    usdcBalance = await fetchPolygonUsdcBalance(addr);
+  } catch(e){
+    console.warn("USDC balance fetch failed (positions only)", e);
+  }
+
+  const totalUsd = positionsUsd + usdcBalance;
   const rate = await getUsdEurRate();
-  return { valueEur: valueUsd * rate, valueUsd, rate };
+  return {
+    valueEur: totalUsd * rate,
+    valueUsd: totalUsd,
+    positionsUsd,
+    usdcBalance,
+    rate
+  };
 }
 
-async function fetchCryptoWalletValue(address){
+async function fetchDeBankTotalValue(address){
+  // DeBank aggregates wallet + DeFi positions across all chains
+  // Endpoint used by their web UI. CORS: No → needs proxy (user's CF Worker)
+  const debankUrl = `https://api.debank.com/user/total_balance?id=${address.toLowerCase()}`;
+  const proxy = (state.proxyUrl || "").trim();
+  if(!proxy){
+    throw new Error("Proxy CORS requis (configure ton Cloudflare Worker dans ⚙ Conseil)");
+  }
+  const url = proxy + encodeURIComponent(debankUrl);
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 15000);
+  let res;
+  try {
+    res = await fetch(url, {cache:"no-store", signal: ctrl.signal});
+  } catch(e){
+    clearTimeout(tid);
+    throw e.name === "AbortError" ? new Error("Timeout DeBank") : new Error("DeBank inaccessible via proxy");
+  }
+  clearTimeout(tid);
+  if(!res.ok) throw new Error("DeBank HTTP " + res.status);
+  const data = await res.json();
+  // DeBank response: { data: { total_usd_value, chain_list: [...] } } OR { total_usd_value, chain_list }
+  const payload = data.data || data;
+  const totalUsd = parseFloat(payload.total_usd_value);
+  if(isNaN(totalUsd) || totalUsd < 0){
+    throw new Error("DeBank: réponse inattendue");
+  }
+  // Breakdown per chain (for debug/display)
+  const chains = Array.isArray(payload.chain_list)
+    ? payload.chain_list
+        .filter(c => c.usd_value > 0.01)
+        .map(c => ({ id: c.id, name: c.name || c.id, valueUsd: c.usd_value }))
+        .sort((a,b) => b.valueUsd - a.valueUsd)
+    : [];
+  const rate = await getUsdEurRate();
+  return { valueEur: totalUsd * rate, valueUsd: totalUsd, rate, chains };
+}
+
+async function fetchEthplorerValue(address){
   const addr = address.trim().toLowerCase();
   if(!/^0x[a-f0-9]{40}$/.test(addr)) throw new Error("Adresse ETH invalide");
   const ethplorerUrl = `https://api.ethplorer.io/getAddressInfo/${addr}?apiKey=freekey`;
-  // Ethplorer doesn't serve CORS - we MUST use a proxy
+  const proxy = (state.proxyUrl || "").trim();
   const DEFAULT_PROXIES = [
     "https://corsproxy.io/?url=",
     "https://api.allorigins.win/raw?url=",
     "https://api.codetabs.com/v1/proxy?quest=",
   ];
-  const custom = (state.proxyUrl || "").trim();
-  const proxies = custom ? [custom] : DEFAULT_PROXIES;
+  const proxies = proxy ? [proxy] : DEFAULT_PROXIES;
 
   let data = null;
   let lastErr = null;
-  for(const proxy of proxies){
-    const url = proxy + encodeURIComponent(ethplorerUrl);
+  for(const p of proxies){
+    const url = p + encodeURIComponent(ethplorerUrl);
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 15000);
     try {
-      const res = await fetch(url, {cache:"no-store", signal:ctrl.signal});
+      const res = await fetch(url, {cache:"no-store", signal: ctrl.signal});
       clearTimeout(tid);
       if(!res.ok){ lastErr = new Error("Proxy HTTP "+res.status); continue; }
       const body = await res.json();
@@ -1729,13 +1829,11 @@ async function fetchCryptoWalletValue(address){
 
   let valueUsd = 0;
   const breakdown = [];
-  // ETH native balance
   if(data.ETH && typeof data.ETH.balance === "number" && data.ETH.price && data.ETH.price.rate){
     const v = data.ETH.balance * data.ETH.price.rate;
     valueUsd += v;
     breakdown.push({ symbol:"ETH", balance:data.ETH.balance, priceUsd:data.ETH.price.rate, valueUsd:v });
   }
-  // ERC20 tokens (skip those without a USD price — usually spam)
   if(Array.isArray(data.tokens)){
     for(const t of data.tokens){
       const info = t.tokenInfo;
@@ -1745,15 +1843,25 @@ async function fetchCryptoWalletValue(address){
       if(!balance || balance <= 0) continue;
       const priceUsd = parseFloat(info.price.rate);
       const v = balance * priceUsd;
-      if(v < 0.01) continue; // dust
+      if(v < 0.01) continue;
       valueUsd += v;
       breakdown.push({ symbol: info.symbol || "?", balance, priceUsd, valueUsd:v });
     }
   }
-  // Sort breakdown by value descending
   breakdown.sort((a,b) => b.valueUsd - a.valueUsd);
   const rate = await getUsdEurRate();
   return { valueEur: valueUsd * rate, valueUsd, rate, breakdown };
+}
+
+async function fetchCryptoWalletValue(address){
+  // Primary: DeBank (wallet + DeFi positions, multichain)
+  // Fallback: Ethplorer (wallet ERC20 only, Ethereum only)
+  try {
+    return await fetchDeBankTotalValue(address);
+  } catch(e){
+    console.warn("DeBank failed, falling back to Ethplorer", e.message);
+    return fetchEthplorerValue(address);
+  }
 }
 
 /* ---------- Refresh all auto sources ---------- */
