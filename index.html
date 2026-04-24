@@ -1744,25 +1744,30 @@ async function fetchPolymarketValue(address){
   clearTimeout(tid);
   if(!res.ok) throw new Error("Polymarket HTTP "+res.status);
   const data = await res.json();
+  console.log("[Polymarket] /value raw response:", JSON.stringify(data));
   let positionsUsd = 0;
   if(Array.isArray(data) && data.length > 0){
     positionsUsd = parseFloat(data[0].value) || 0;
   } else if(data && data.value != null){
     positionsUsd = parseFloat(data.value) || 0;
   }
+  console.log("[Polymarket] positions parsed:", positionsUsd);
 
   // 2) USDC cash on Polygon (not included in /value endpoint)
   let usdcBalance = 0;
   try {
     usdcBalance = await fetchPolygonUsdcBalance(addr);
+    console.log("[Polymarket] USDC balance returned:", usdcBalance);
   } catch(e){
-    console.warn("USDC balance fetch failed (positions only)", e);
+    console.warn("[Polymarket] USDC fetch threw:", e.message);
   }
 
   const totalUsd = positionsUsd + usdcBalance;
   const rate = await getUsdEurRate();
+  const valueEur = totalUsd * rate;
+  console.log(`[Polymarket] FINAL: positions=$${positionsUsd.toFixed(2)} + cash=$${usdcBalance.toFixed(2)} = $${totalUsd.toFixed(2)} × ${rate.toFixed(4)} = €${valueEur.toFixed(2)}`);
   return {
-    valueEur: totalUsd * rate,
+    valueEur,
     valueUsd: totalUsd,
     positionsUsd,
     usdcBalance,
