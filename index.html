@@ -726,6 +726,150 @@
   ::-webkit-scrollbar-track{background:var(--obsidian)}
   ::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:2px}
   ::-webkit-scrollbar-thumb:hover{background:var(--gold)}
+
+  /* ---------- Positions modal (Degiro) ---------- */
+  .scroll.wide{max-width:780px}
+  .pos-toolbar{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:16px;padding:12px 14px;
+    background:rgba(7,7,11,0.5);
+    border:1px solid rgba(201,160,74,0.2);
+    border-radius:2px;
+  }
+  .pos-toolbar .pos-stats{
+    font-family:'Cinzel',serif;font-size:11px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--parchment-dim);
+  }
+  .pos-toolbar .pos-stats b{color:var(--gold-bright);font-weight:600}
+  .pos-toolbar .pos-actions{display:flex;gap:8px}
+  .pos-btn{
+    background:rgba(20,20,31,0.8);
+    border:1px solid var(--gold-dim);
+    color:var(--gold-pale);
+    font-family:'Cinzel',serif;font-size:10px;
+    letter-spacing:.2em;text-transform:uppercase;
+    padding:8px 12px;cursor:pointer;
+    border-radius:2px;transition:all .2s;
+  }
+  .pos-btn:hover{background:rgba(139,15,27,0.4);border-color:var(--gold)}
+  .pos-btn.primary{
+    background:linear-gradient(180deg,var(--crimson-bright),var(--crimson));
+    border-color:var(--gold);
+  }
+  .pos-btn.primary:hover{background:linear-gradient(180deg,#d43149,var(--crimson-bright))}
+  .pos-btn:disabled{opacity:.5;cursor:wait}
+
+  .pos-list{max-height:55vh;overflow-y:auto;padding-right:4px}
+  .pos-row{
+    display:grid;
+    grid-template-columns:auto 1.2fr 0.8fr 0.8fr 1fr 1fr auto;
+    gap:12px;align-items:center;
+    padding:12px 14px;margin-bottom:8px;
+    background:rgba(20,20,31,0.6);
+    border:1px solid rgba(201,160,74,0.18);
+    border-left:3px solid var(--celestial);
+    border-radius:2px;
+    transition:all .2s;
+  }
+  .pos-row:hover{border-color:rgba(125,211,252,0.4);background:rgba(20,20,31,0.9)}
+  .pos-row .pos-status{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--parchment-faded);
+    box-shadow:0 0 6px currentColor;
+  }
+  .pos-row .pos-status.fresh{background:var(--success);color:var(--success)}
+  .pos-row .pos-status.stale{background:#eab308;color:#eab308}
+  .pos-row .pos-status.manual{background:var(--celestial);color:var(--celestial)}
+  .pos-row .pos-status.err{background:var(--danger);color:var(--danger)}
+  .pos-row .pos-ticker{
+    font-family:'Cinzel',serif;font-weight:600;font-size:13px;
+    letter-spacing:.08em;color:var(--parchment);
+  }
+  .pos-row .pos-ticker .pos-name{
+    display:block;font-family:'EB Garamond',serif;font-style:italic;
+    font-size:12px;color:var(--parchment-dim);letter-spacing:0;
+    margin-top:2px;font-weight:400;
+  }
+  .pos-row .pos-num{
+    font-family:'Cinzel',serif;font-size:13px;color:var(--parchment);
+    text-align:right;
+  }
+  .pos-row .pos-num .lab{
+    display:block;font-size:9px;letter-spacing:.2em;color:var(--parchment-faded);
+    text-transform:uppercase;margin-bottom:2px;font-weight:400;
+  }
+  .pos-row .pos-value{
+    font-family:'Cinzel Decorative',serif;font-weight:600;font-size:15px;
+    color:var(--gold-bright);text-align:right;
+  }
+  .pos-row .pos-pv{
+    font-family:'Cinzel',serif;font-size:12px;text-align:right;
+    padding:4px 8px;border-radius:2px;
+  }
+  .pos-row .pos-pv.pos{color:var(--success);background:rgba(16,185,129,0.12)}
+  .pos-row .pos-pv.neg{color:var(--danger);background:rgba(239,68,68,0.12)}
+  .pos-row .pos-acts{display:flex;gap:4px}
+  .pos-row .pos-icon-btn{
+    width:26px;height:26px;display:grid;place-items:center;
+    background:transparent;border:1px solid rgba(201,160,74,0.2);
+    color:var(--parchment-dim);font-size:12px;
+    border-radius:2px;cursor:pointer;transition:all .15s;
+  }
+  .pos-row .pos-icon-btn:hover{border-color:var(--gold);color:var(--gold-pale)}
+  .pos-row .pos-icon-btn.del:hover{border-color:var(--danger);color:var(--danger)}
+
+  .pos-empty{
+    text-align:center;padding:40px 20px;
+    color:var(--parchment-dim);font-style:italic;font-size:14px;
+  }
+  .pos-empty .emb{font-size:36px;color:var(--gold);margin-bottom:10px}
+
+  .pos-summary{
+    margin-top:14px;padding:14px 18px;
+    background:linear-gradient(90deg,rgba(139,15,27,0.3),rgba(20,20,31,0.6));
+    border:1px solid var(--gold-dim);
+    border-radius:2px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .pos-summary .ps-lab{
+    font-family:'Cinzel',serif;font-size:11px;letter-spacing:.25em;
+    text-transform:uppercase;color:var(--gold);
+  }
+  .pos-summary .ps-val{
+    font-family:'Cinzel Decorative',serif;font-weight:700;font-size:22px;
+    color:var(--gold-bright);
+  }
+  .pos-summary .ps-val .cur{font-size:.6em;color:var(--gold);margin-left:3px}
+
+  /* Small ticker hint in edit form */
+  .ticker-hint{
+    display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;
+  }
+  .ticker-hint span{
+    font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;
+    padding:2px 8px;background:rgba(20,20,31,0.7);
+    border:1px solid rgba(201,160,74,0.2);
+    color:var(--parchment-dim);border-radius:2px;
+  }
+
+  /* Responsive: stack pos rows on mobile */
+  @media(max-width:640px){
+    .pos-row{
+      grid-template-columns:auto 1fr auto;
+      grid-template-areas:
+        "status ticker acts"
+        "status qty value"
+        "status pru pv";
+      gap:6px 10px;
+    }
+    .pos-row .pos-status{grid-area:status}
+    .pos-row .pos-ticker{grid-area:ticker}
+    .pos-row .pos-acts{grid-area:acts}
+    .pos-row .pos-num:first-of-type{grid-area:qty}
+    .pos-row .pos-num:nth-of-type(2){grid-area:pru}
+    .pos-row .pos-value{grid-area:value}
+    .pos-row .pos-pv{grid-area:pv}
+  }
 </style>
 </head>
 <body>
@@ -798,6 +942,76 @@
     <div class="scroll-actions">
       <button id="setCancel">Fermer</button>
       <button class="primary" id="setSave">Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- Positions modal (Degiro) -->
+<div class="veil" id="positionsVeil">
+  <div class="scroll wide">
+    <h3 id="positionsTitle">Magie Céleste</h3>
+    <div class="sub-h" id="positionsSub">Grimoire des positions · Degiro</div>
+
+    <div class="pos-toolbar">
+      <div class="pos-stats" id="posStats">— positions</div>
+      <div class="pos-actions">
+        <button class="pos-btn" id="posAdd">＋ Ajouter</button>
+        <button class="pos-btn primary" id="posRefresh">🔄 Cours</button>
+      </div>
+    </div>
+
+    <div class="pos-list" id="posList"></div>
+
+    <div class="pos-summary">
+      <span class="ps-lab">Total Arcane</span>
+      <span class="ps-val"><span id="posTotalVal">0</span><span class="cur">€</span></span>
+    </div>
+
+    <div class="scroll-actions">
+      <button id="posClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit position modal -->
+<div class="veil" id="posEditVeil">
+  <div class="scroll">
+    <h3 id="posEditTitle">Nouvelle Position</h3>
+    <div class="sub-h">Inscrire dans le grimoire</div>
+    <div class="field">
+      <label>Ticker Stooq</label>
+      <input type="text" id="pfTicker" placeholder="Ex: FWRA.DE" style="text-transform:uppercase">
+      <div class="ticker-hint">
+        <span>.DE · Xetra</span>
+        <span>.FR · Paris</span>
+        <span>.UK · Londres</span>
+        <span>.US · NYSE/Nasdaq</span>
+        <span>.NL · Amsterdam</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Nom (optionnel)</label>
+      <input type="text" id="pfName" placeholder="Ex: Invesco FTSE All-World">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="field">
+        <label>Quantité</label>
+        <input type="number" id="pfQty" step="0.0001" placeholder="0">
+      </div>
+      <div class="field">
+        <label>PRU (€)</label>
+        <input type="number" id="pfPru" step="0.0001" placeholder="0.00">
+      </div>
+    </div>
+    <div class="field">
+      <label>Cours actuel (€) · manuel</label>
+      <input type="number" id="pfPrice" step="0.0001" placeholder="Laisser vide pour Stooq auto">
+      <div class="hint">Si vide, cliquez "🔄 Cours" dans la liste pour l'actualiser via Stooq</div>
+    </div>
+    <div class="scroll-actions">
+      <button id="pfDelete" style="color:var(--danger);border-color:var(--danger);display:none">Supprimer</button>
+      <button id="pfCancel">Annuler</button>
+      <button class="primary" id="pfSave">Sceller</button>
     </div>
   </div>
 </div>
@@ -1135,8 +1349,29 @@ function fmtCompact(n){
   if(n>=1e3) return (n/1e3).toFixed(n>=1e4?0:1).replace(/\.?0+$/,"") + "k";
   return fmt(n);
 }
+function getAccountValue(id){
+  const v = state.accounts[id];
+  if(typeof v === "number") return v;
+  if(v && Array.isArray(v.positions)){
+    return v.positions.reduce((s,p) => s + (Number(p.quantity)||0) * (Number(p.lastPrice)||0), 0);
+  }
+  return 0;
+}
+function isPositionsAccount(id){
+  // Only Degiro uses positions mode for now
+  return id === "degiro";
+}
+function ensurePositionsShape(id){
+  const prev = state.accounts[id];
+  if(!prev || typeof prev === "number"){
+    const legacyValue = typeof prev === "number" && prev > 0 ? prev : 0;
+    state.accounts[id] = { positions: [], legacyValue };
+  } else if(!Array.isArray(state.accounts[id].positions)){
+    state.accounts[id].positions = [];
+  }
+}
 function getTotal(){
-  return Object.values(state.accounts).reduce((s,v)=>s+(Number(v)||0),0);
+  return ACCOUNT_DEFS.reduce((s,def) => s + getAccountValue(def.id), 0);
 }
 function getRank(total){
   let current = RANKS[0], next = null;
@@ -1204,28 +1439,41 @@ function renderArcanes(){
   grid.innerHTML = "";
   const total = getTotal();
   ACCOUNT_DEFS.forEach(def => {
-    const v = Number(state.accounts[def.id]) || 0;
+    const v = getAccountValue(def.id);
     const share = total > 0 ? (v/total*100) : 0;
-    const maxShareForBar = 100;
-    const barWidth = Math.min(100, share * 2); // Visual boost
+    const barWidth = Math.min(100, share * 2);
     const card = document.createElement("div");
     card.className = "arc-card";
     card.dataset.type = def.type;
     card.dataset.id = def.id;
+
+    const isPos = isPositionsAccount(def.id);
+    const posCount = isPos && state.accounts[def.id] && Array.isArray(state.accounts[def.id].positions)
+      ? state.accounts[def.id].positions.length : 0;
+    const subLabel = isPos
+      ? `${posCount} position${posCount>1?"s":""} · ${def.name}`
+      : def.name;
+
     card.innerHTML = `
-      <button class="arc-edit" title="Modifier">✎</button>
+      <button class="arc-edit" title="${isPos?'Gérer positions':'Modifier'}">${isPos?'⌬':'✎'}</button>
       <div class="arc-head">
         <div class="arc-rune">${def.icon}</div>
         <div class="arc-label">
           <div class="magic-name">${def.magic}</div>
-          <div class="account-name">${def.name}</div>
+          <div class="account-name">${subLabel}</div>
         </div>
       </div>
       <div class="arc-value">${fmt(v)}<span class="cur">€</span></div>
       <div class="arc-share"><span class="pct">${share.toFixed(1)}%</span> · Part du trésor</div>
       <div class="arc-bar"><div class="arc-bar-fill" style="width:${barWidth}%"></div></div>
     `;
-    card.addEventListener("click", e => openEdit(def.id));
+    card.addEventListener("click", e => {
+      if(isPositionsAccount(def.id)){
+        openPositions(def.id);
+      } else {
+        openEdit(def.id);
+      }
+    });
     grid.appendChild(card);
   });
 }
@@ -1280,7 +1528,7 @@ function renderQuests(){
   });
 
   // Diversification quest
-  const nonZero = Object.values(state.accounts).filter(v => Number(v) > 0).length;
+  const nonZero = ACCOUNT_DEFS.filter(def => getAccountValue(def.id) > 0).length;
   quests.push({
     type: "Quête d'Équilibre",
     title: `Activer les six arcanes (${nonZero}/6)`,
@@ -1560,6 +1808,274 @@ function setupGuildNameEdit(){
   });
 }
 
+/* ---------- Positions management (Degiro) ---------- */
+let posCurrentAccount = null;  // id of account being managed
+let posEditing = null;         // position id being edited, or null for new
+
+function uid(){ return "p_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+async function fetchStooqPrice(ticker){
+  // Returns { price, date, time } or throws
+  const clean = ticker.trim().toLowerCase();
+  const url = `https://stooq.com/q/l/?s=${encodeURIComponent(clean)}&f=sd2t2c&h&e=csv`;
+  const res = await fetch(url, {cache:"no-store"});
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  const text = (await res.text()).trim();
+  const lines = text.split(/\r?\n/);
+  if(lines.length < 2) throw new Error("Réponse vide");
+  // CSV header: Symbol,Date,Time,Close
+  const cols = lines[1].split(",");
+  if(cols.length < 4) throw new Error("Format invalide");
+  const close = cols[3];
+  if(close === "N/D" || close === "" || close == null) throw new Error("Ticker non trouvé");
+  const price = parseFloat(close);
+  if(isNaN(price) || price <= 0) throw new Error("Cours invalide");
+  return { price, date: cols[1], time: cols[2] };
+}
+
+function posStatusClass(p){
+  if(!p.lastPrice) return "err";
+  if(p.manual) return "manual";
+  const age = Date.now() - (p.lastPriceTime || 0);
+  if(age < 24*3600*1000) return "fresh";
+  return "stale";
+}
+
+function openPositions(accountId){
+  posCurrentAccount = accountId;
+  ensurePositionsShape(accountId);
+  const def = ACCOUNT_DEFS.find(a => a.id === accountId);
+  document.getElementById("positionsTitle").textContent = def.magic;
+  document.getElementById("positionsSub").textContent = `Grimoire des positions · ${def.name}`;
+  renderPositions();
+  document.getElementById("positionsVeil").classList.add("show");
+}
+
+function closePositions(){
+  document.getElementById("positionsVeil").classList.remove("show");
+  posCurrentAccount = null;
+}
+
+function renderPositions(){
+  const acc = state.accounts[posCurrentAccount];
+  const positions = (acc && acc.positions) || [];
+  const list = document.getElementById("posList");
+  list.innerHTML = "";
+
+  document.getElementById("posStats").innerHTML = positions.length > 0
+    ? `<b>${positions.length}</b> position${positions.length>1?"s":""}`
+    : "Aucune position scellée";
+
+  if(positions.length === 0){
+    const acc2 = state.accounts[posCurrentAccount];
+    const legacy = acc2 && acc2.legacyValue ? acc2.legacyValue : 0;
+    list.innerHTML = `<div class="pos-empty">
+      <div class="emb">⌬</div>
+      <div>Aucune position dans le grimoire.</div>
+      ${legacy > 0 ? `<div style="margin-top:14px;padding:10px;background:rgba(240,199,92,0.1);border:1px solid var(--gold-dim);border-radius:2px;color:var(--gold-pale);font-style:normal;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em">⚠ Ancienne valeur simple : ${fmt(legacy)} € · réimporte-la en positions</div>` : ""}
+      <div style="margin-top:6px;font-size:12px">Clique "＋ Ajouter" pour inscrire ta première ligne.</div>
+    </div>`;
+    document.getElementById("posTotalVal").textContent = "0";
+    return;
+  }
+
+  positions.forEach(p => {
+    const qty = Number(p.quantity) || 0;
+    const pru = Number(p.pru) || 0;
+    const price = Number(p.lastPrice) || 0;
+    const value = qty * price;
+    const cost = qty * pru;
+    const pv = value - cost;
+    const pvPct = cost > 0 ? (pv/cost*100) : 0;
+    const statusCls = posStatusClass(p);
+    const statusLabel = statusCls === "fresh" ? "Récent (<24h)"
+      : statusCls === "stale" ? "À rafraîchir"
+      : statusCls === "manual" ? "Manuel"
+      : "Pas de cours";
+
+    const row = document.createElement("div");
+    row.className = "pos-row";
+    row.innerHTML = `
+      <div class="pos-status ${statusCls}" title="${statusLabel}"></div>
+      <div class="pos-ticker">
+        ${p.ticker.toUpperCase()}
+        ${p.name ? `<span class="pos-name">${p.name}</span>` : ""}
+      </div>
+      <div class="pos-num"><span class="lab">Qté</span>${fmtPrecise(qty)}</div>
+      <div class="pos-num"><span class="lab">PRU</span>${fmtPrecise(pru)} €</div>
+      <div class="pos-num"><span class="lab">Cours</span>${price ? fmtPrecise(price)+' €' : '—'}</div>
+      <div class="pos-value">${fmt(value)} €
+        ${cost > 0 ? `<div class="pos-pv ${pv>=0?'pos':'neg'}">${pv>=0?'+':''}${fmt(pv)} € · ${pv>=0?'+':''}${pvPct.toFixed(1)}%</div>` : ''}
+      </div>
+      <div class="pos-acts">
+        <button class="pos-icon-btn" data-act="edit" title="Modifier">✎</button>
+      </div>
+    `;
+    row.querySelector('[data-act="edit"]').addEventListener("click", e => {
+      e.stopPropagation();
+      openPosEdit(p.id);
+    });
+    row.addEventListener("click", () => openPosEdit(p.id));
+    list.appendChild(row);
+  });
+
+  const total = positions.reduce((s,p) => s + (Number(p.quantity)||0)*(Number(p.lastPrice)||0), 0);
+  document.getElementById("posTotalVal").textContent = fmt(total);
+}
+
+function fmtPrecise(n){
+  if(n == null || isNaN(n)) return "0";
+  if(n >= 100) return new Intl.NumberFormat("fr-FR",{maximumFractionDigits:2}).format(n);
+  return new Intl.NumberFormat("fr-FR",{maximumFractionDigits:4}).format(n);
+}
+
+function openPosEdit(positionId){
+  posEditing = positionId;
+  const acc = state.accounts[posCurrentAccount];
+  const p = positionId ? (acc.positions || []).find(x => x.id === positionId) : null;
+  document.getElementById("posEditTitle").textContent = p ? "Modifier Position" : "Nouvelle Position";
+  document.getElementById("pfTicker").value = p ? p.ticker : "";
+  document.getElementById("pfName").value = p ? (p.name || "") : "";
+  document.getElementById("pfQty").value = p ? p.quantity : "";
+  document.getElementById("pfPru").value = p ? p.pru : "";
+  document.getElementById("pfPrice").value = p ? (p.lastPrice || "") : "";
+  document.getElementById("pfDelete").style.display = p ? "block" : "none";
+  document.getElementById("posEditVeil").classList.add("show");
+  setTimeout(() => document.getElementById("pfTicker").focus(), 50);
+}
+
+function closePosEdit(){
+  document.getElementById("posEditVeil").classList.remove("show");
+  posEditing = null;
+}
+
+async function savePosition(){
+  const ticker = document.getElementById("pfTicker").value.trim().toUpperCase();
+  const name = document.getElementById("pfName").value.trim();
+  const qty = parseFloat(document.getElementById("pfQty").value);
+  const pru = parseFloat(document.getElementById("pfPru").value);
+  const manualPrice = document.getElementById("pfPrice").value;
+
+  if(!ticker){ toast("Ticker obligatoire"); return; }
+  if(isNaN(qty) || qty <= 0){ toast("Quantité invalide"); return; }
+  if(isNaN(pru) || pru < 0){ toast("PRU invalide"); return; }
+
+  ensurePositionsShape(posCurrentAccount);
+  const acc = state.accounts[posCurrentAccount];
+
+  const prevTotal = getTotal();
+  const prevRank = getRank(prevTotal).current;
+
+  if(posEditing){
+    const p = acc.positions.find(x => x.id === posEditing);
+    if(p){
+      p.ticker = ticker;
+      p.name = name;
+      p.quantity = qty;
+      p.pru = pru;
+      if(manualPrice !== ""){
+        const mp = parseFloat(manualPrice);
+        if(!isNaN(mp) && mp > 0){
+          p.lastPrice = mp;
+          p.lastPriceTime = Date.now();
+          p.manual = true;
+        }
+      }
+    }
+  } else {
+    const p = {
+      id: uid(),
+      ticker, name, quantity: qty, pru,
+      lastPrice: 0, lastPriceTime: 0, manual: false
+    };
+    if(manualPrice !== ""){
+      const mp = parseFloat(manualPrice);
+      if(!isNaN(mp) && mp > 0){
+        p.lastPrice = mp;
+        p.lastPriceTime = Date.now();
+        p.manual = true;
+      }
+    }
+    acc.positions.push(p);
+  }
+
+  state.lastUpdate = Date.now();
+  await saveState();
+  closePosEdit();
+  renderPositions();
+  renderAll();
+
+  const newTotal = getTotal();
+  const newRank = getRank(newTotal).current;
+  if(newRank.sym !== prevRank.sym && RANKS.indexOf(newRank) > RANKS.indexOf(prevRank)){
+    ascend(newRank);
+  } else {
+    toast("Position scellée · " + ticker);
+  }
+}
+
+async function deletePosition(){
+  if(!posEditing) return;
+  if(!confirm("Supprimer cette position ?")) return;
+  const acc = state.accounts[posCurrentAccount];
+  acc.positions = acc.positions.filter(x => x.id !== posEditing);
+  state.lastUpdate = Date.now();
+  await saveState();
+  closePosEdit();
+  renderPositions();
+  renderAll();
+  toast("Position supprimée");
+}
+
+async function refreshAllPrices(){
+  const acc = state.accounts[posCurrentAccount];
+  const positions = (acc && acc.positions) || [];
+  if(positions.length === 0){ toast("Aucune position à actualiser"); return; }
+
+  const btn = document.getElementById("posRefresh");
+  btn.disabled = true;
+  btn.textContent = "🔄 ...";
+
+  let ok = 0, fail = 0;
+  const failedTickers = [];
+
+  const prevTotal = getTotal();
+  const prevRank = getRank(prevTotal).current;
+
+  // Fetch sequentially to avoid rate limits / CORS issues
+  for(const p of positions){
+    try {
+      const r = await fetchStooqPrice(p.ticker);
+      p.lastPrice = r.price;
+      p.lastPriceTime = Date.now();
+      p.manual = false;
+      ok++;
+    } catch(err){
+      fail++;
+      failedTickers.push(p.ticker);
+      console.warn("Stooq fail", p.ticker, err.message);
+    }
+  }
+
+  state.lastUpdate = Date.now();
+  await saveState();
+  renderPositions();
+  renderAll();
+
+  btn.disabled = false;
+  btn.textContent = "🔄 Cours";
+
+  if(ok > 0 && fail === 0) toast(`✓ ${ok} cours actualisé${ok>1?"s":""}`, "epic");
+  else if(ok > 0 && fail > 0) toast(`${ok} ok · ${fail} échec (${failedTickers.join(", ")})`);
+  else toast(`Échec Stooq · Utilise le cours manuel (${failedTickers.join(", ")})`);
+
+  const newTotal = getTotal();
+  const newRank = getRank(newTotal).current;
+  if(newRank.sym !== prevRank.sym && RANKS.indexOf(newRank) > RANKS.indexOf(prevRank)){
+    setTimeout(() => ascend(newRank), 800);
+  }
+}
+
 /* ---------- Boot ---------- */
 function boot(){
   renderAll();
@@ -1586,6 +2102,20 @@ function boot(){
     e.target.value = "";
   });
   document.getElementById("btnReset").addEventListener("click", doReset);
+
+  // Positions modal
+  document.getElementById("posClose").addEventListener("click", closePositions);
+  document.getElementById("posAdd").addEventListener("click", () => openPosEdit(null));
+  document.getElementById("posRefresh").addEventListener("click", refreshAllPrices);
+  document.getElementById("pfSave").addEventListener("click", savePosition);
+  document.getElementById("pfCancel").addEventListener("click", closePosEdit);
+  document.getElementById("pfDelete").addEventListener("click", deletePosition);
+  document.getElementById("pfTicker").addEventListener("keydown", e => {
+    if(e.key === "Enter") document.getElementById("pfQty").focus();
+  });
+  document.getElementById("pfPrice").addEventListener("keydown", e => {
+    if(e.key === "Enter") savePosition();
+  });
 
   // Close modals on backdrop click
   document.querySelectorAll(".veil").forEach(v => {
