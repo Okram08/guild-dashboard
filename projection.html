@@ -825,6 +825,15 @@ function runAndRender(){
   renderSummary(lastResult);
   renderChart(lastResult);
   renderMilestones(lastResult);
+
+  // Persist a summary of last result for achievements page to read
+  state.lastResult = {
+    successRate: lastResult.successRate,
+    medianYears: lastResult.goalStats ? lastResult.goalStats.medianYears : null,
+    goal: state.goal,
+    computedAt: Date.now(),
+  };
+  saveState();
 }
 
 /* -------- Boot -------- */
