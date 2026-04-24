@@ -144,6 +144,67 @@ window.GDCommon = (function(){
     throw lastErr || new Error("Tous les proxies ont échoué");
   }
 
+  /* -------- Yahoo Finance historical chart endpoint -------- */
+  // Returns weekly (or custom interval) price series over `range` period
+  // Usage: await fetchYahooHistory("BTC-USD", "6mo", "1wk")
+  //   range:    "1mo"|"3mo"|"6mo"|"1y"|"2y"|"5y"
+  //   interval: "1d"|"1wk"|"1mo"
+  // Returns: { series: [{t: unix_ms, price: float}], currency: "USD" }
+
+  async function fetchYahooHistory(ticker, range = "6mo", interval = "1wk"){
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker.trim())}?interval=${interval}&range=${range}`;
+    const DEFAULT_PROXIES = [
+      "https://corsproxy.io/?url=",
+      "https://api.allorigins.win/raw?url=",
+      "https://api.codetabs.com/v1/proxy?quest=",
+    ];
+    const custom = getProxyUrl();
+    const proxies = custom ? [custom] : DEFAULT_PROXIES;
+
+    let lastErr = null;
+    for(const proxy of proxies){
+      const url = proxy + encodeURIComponent(yahooUrl);
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 20000); // 20s for bigger payload
+      try {
+        let res;
+        try {
+          res = await fetch(url, {cache:"no-store", signal: ctrl.signal});
+        } finally { clearTimeout(tid); }
+        if(!res.ok){ lastErr = new Error("Proxy HTTP "+res.status); continue; }
+        const data = await res.json();
+        const result = data && data.chart && data.chart.result && data.chart.result[0];
+        if(!result){
+          throw new Error("Ticker inconnu sur Yahoo");
+        }
+        const timestamps = result.timestamp || [];
+        const closes = (result.indicators && result.indicators.quote && result.indicators.quote[0] && result.indicators.quote[0].close) || [];
+        const currency = (result.meta && result.meta.currency) || "USD";
+        if(timestamps.length === 0){
+          lastErr = new Error("Pas d'historique disponible pour "+ticker);
+          continue;
+        }
+        // Pair timestamps with closes, skip nulls
+        const series = [];
+        for(let i = 0; i < timestamps.length; i++){
+          if(closes[i] != null && !isNaN(closes[i])){
+            series.push({ t: timestamps[i] * 1000, price: parseFloat(closes[i]) });
+          }
+        }
+        if(series.length < 2){
+          lastErr = new Error("Historique trop court pour "+ticker);
+          continue;
+        }
+        return { series, currency };
+      } catch(e){
+        if(e.message && e.message.includes("Ticker inconnu")) throw e;
+        if(e.name === "AbortError") lastErr = new Error("Timeout proxy (>20s)");
+        else lastErr = e;
+      }
+    }
+    throw lastErr || new Error("Tous les proxies ont échoué");
+  }
+
   /* -------- Snapshot bridge (dashboard ↔ tournament) -------- */
 
   const SNAPSHOT_KEY = "guildDashboard.snapshot";
@@ -151,9 +212,7 @@ window.GDCommon = (function(){
   function writeSnapshot(data){
     try {
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({
-        total: data.total || 0,
-        guildName: data.guildName || "",
-        guildMasterName: data.guildMasterName || "",
+        ...data,
         timestamp: Date.now(),
       }));
     } catch(e){ console.warn("Snapshot write failed", e); }
@@ -174,6 +233,7 @@ window.GDCommon = (function(){
     toast,
     getUsdEurRate,
     fetchYahooPrice,
+    fetchYahooHistory,
     writeSnapshot, readSnapshot,
   };
 })();
