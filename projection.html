@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projection Mille Royaume · Monte Carlo</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="common.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:       #0a0611;
+      --bg-panel:      rgba(28, 18, 34, 0.78);
+      --bg-panel-hi:   rgba(40, 28, 48, 0.88);
+      --gold:          #d4a744;
+      --gold-hi:       #fbbf24;
+      --gold-soft:     rgba(212, 167, 68, 0.35);
+      --ink:           #f0e4c4;
+      --ink-dim:       #a89878;
+      --crimson:       #a03028;
+      --border:        rgba(212, 167, 68, 0.18);
+      --p10:           #f87171;
+      --p50:           #fbbf24;
+      --p90:           #86efac;
+    }
+
+    body {
+      background:
+        radial-gradient(ellipse at top, rgba(212, 167, 68, 0.06), transparent 60%),
+        radial-gradient(ellipse at bottom center, rgba(134, 239, 172, 0.04), transparent 55%),
+        var(--bg-deep);
+      color: var(--ink);
+      font-family: 'EB Garamond', Georgia, serif;
+      min-height: 100vh;
+      padding: 40px 60px;
+      background-attachment: fixed;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 28px;
+    }
+    .back-link {
+      color: var(--ink-dim);
+      text-decoration: none;
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      transition: color .2s;
+    }
+    .back-link:hover { color: var(--gold-hi); }
+
+    h1 {
+      font-family: 'UnifrakturCook', serif;
+      font-weight: 700;
+      font-size: 42px;
+      color: var(--gold-hi);
+      text-shadow: 0 0 30px rgba(251, 191, 36, 0.25);
+      margin-top: 2px;
+    }
+    .header-sub {
+      text-align: right;
+      font-style: italic;
+      color: var(--ink-dim);
+      font-size: 14px;
+    }
+
+    /* Inputs panel */
+    .inputs {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 22px 26px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .input-group { display: flex; flex-direction: column; gap: 4px; }
+    .input-group label {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+    .input-group input {
+      background: rgba(10, 6, 17, 0.6);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      padding: 8px 12px;
+      border-radius: 3px;
+      font-family: 'EB Garamond', serif;
+      font-size: 15px;
+    }
+    .input-group input:focus {
+      outline: none;
+      border-color: var(--gold-hi);
+    }
+
+    .presets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    .preset-pill {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      color: var(--ink-dim);
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .preset-pill:hover {
+      color: var(--gold-hi);
+      border-color: var(--gold-soft);
+    }
+    .preset-pill.active {
+      color: var(--gold-hi);
+      border-color: var(--gold);
+      background: rgba(212, 167, 68, 0.12);
+    }
+
+    button {
+      font-family: 'Cinzel', serif;
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--gold-soft);
+      padding: 9px 18px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      transition: all .2s;
+    }
+    button:hover {
+      background: rgba(212, 167, 68, 0.08);
+      border-color: var(--gold-hi);
+      color: var(--gold-hi);
+    }
+    button.primary {
+      background: rgba(212, 167, 68, 0.18);
+      border-color: var(--gold);
+      color: var(--gold-hi);
+    }
+
+    /* Summary stat cards */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 18px 22px;
+    }
+    .stat-card .label {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-dim);
+      margin-bottom: 6px;
+    }
+    .stat-card .value {
+      font-family: 'UnifrakturCook', serif;
+      font-size: 28px;
+      color: var(--gold-hi);
+      line-height: 1.15;
+    }
+    .stat-card .value.small { font-size: 18px; font-family: 'Cinzel', serif; font-weight: 500; }
+    .stat-card .sub {
+      font-size: 13px;
+      color: var(--ink-dim);
+      font-style: italic;
+      margin-top: 4px;
+    }
+
+    /* Section title */
+    .section-title {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .section-title::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, var(--gold-soft), transparent);
+    }
+
+    /* Chart wrap */
+    .chart-wrap {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 24px;
+      margin-bottom: 32px;
+      min-height: 360px;
+      position: relative;
+    }
+    .chart-wrap canvas { max-height: 420px; }
+
+    .chart-toggle {
+      position: absolute;
+      top: 18px;
+      right: 24px;
+      display: flex;
+      gap: 6px;
+    }
+    .toggle-pill {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--ink-dim);
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .toggle-pill.active {
+      color: var(--gold-hi);
+      border-color: var(--gold-soft);
+      background: rgba(212, 167, 68, 0.08);
+    }
+
+    /* Milestones table */
+    .milestones {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+    .milestone-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 120px;
+      gap: 20px;
+      padding: 14px 24px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .milestone-row:last-child { border-bottom: none; }
+    .milestone-row .palier {
+      font-family: 'Cinzel', serif;
+      font-weight: 500;
+      color: var(--gold-hi);
+      font-size: 15px;
+    }
+    .milestone-row .bar-container {
+      height: 6px;
+      background: rgba(10, 6, 17, 0.6);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+    .milestone-row .bar-fill {
+      height: 100%;
+      background: linear-gradient(to right, var(--p10), var(--p50), var(--p90));
+      border-radius: 3px;
+    }
+    .milestone-row .timeline {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--ink-dim);
+    }
+    .milestone-row .years {
+      text-align: right;
+      font-family: 'Cinzel', serif;
+      font-size: 16px;
+      color: var(--ink);
+      font-weight: 500;
+    }
+    .milestone-row .years .unit { font-size: 12px; color: var(--ink-dim); margin-left: 3px; }
+    .milestone-row.unreached .years { color: var(--ink-dim); font-style: italic; }
+
+    /* Info box */
+    .info-box {
+      background: rgba(251, 191, 36, 0.04);
+      border: 1px solid var(--gold-soft);
+      border-left: 3px solid var(--gold);
+      border-radius: 3px;
+      padding: 14px 20px;
+      font-size: 14px;
+      color: var(--ink-dim);
+      margin-bottom: 24px;
+      line-height: 1.55;
+    }
+    .info-box b { color: var(--gold-hi); font-weight: 500; }
+
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--ink-dim);
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    @media (max-width: 800px) {
+      body { padding: 20px 16px; }
+      h1 { font-size: 28px; }
+      header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .inputs { grid-template-columns: 1fr 1fr; }
+      .summary { grid-template-columns: 1fr 1fr; }
+      .milestone-row { grid-template-columns: 100px 1fr 80px; gap: 10px; padding: 12px 16px; }
+    }
+    @media (max-width: 500px) {
+      .inputs { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <a href="index.html" class="back-link">← Retour à la Guilde</a>
+    <h1>Projection Mille Royaume</h1>
+  </div>
+  <div class="header-sub">
+    Monte Carlo<br>
+    <span id="oraclesMeta">1000 oracles consultés</span>
+  </div>
+</header>
+
+<div class="info-box">
+  Consulte les oracles du futur pour entrevoir où tu seras dans 5, 10, 20 ans.
+  Les projections sont basées sur tes paramètres actuels + <b>1000 simulations stochastiques</b> (mouvement brownien).
+  Ces oracles ne prédisent pas le futur — ils cartographient le champ des possibles.
+</div>
+
+<div class="inputs">
+  <div class="input-group">
+    <label>Capital actuel (€)</label>
+    <input type="number" id="inCurrent" step="100">
+  </div>
+  <div class="input-group">
+    <label>DCA mensuel (€)</label>
+    <input type="number" id="inDca" step="50">
+  </div>
+  <div class="input-group">
+    <label>Objectif (€)</label>
+    <input type="number" id="inGoal" step="10000">
+  </div>
+  <div class="input-group">
+    <label>Rendement annuel attendu (%)</label>
+    <input type="number" id="inReturn" step="0.5">
+  </div>
+  <div class="input-group">
+    <label>Volatilité annuelle (%)</label>
+    <input type="number" id="inVol" step="1">
+  </div>
+  <div class="input-group">
+    <label>Horizon (années)</label>
+    <input type="number" id="inYears" step="1" min="1" max="60">
+  </div>
+</div>
+
+<div class="presets" id="presetsContainer"></div>
+
+<section class="summary" id="summaryContainer"></section>
+
+<div class="section-title">Éventail des possibles · projection stochastique</div>
+<div class="chart-wrap">
+  <div class="chart-toggle">
+    <button class="toggle-pill active" onclick="setScale('log')" id="tgLog">Log</button>
+    <button class="toggle-pill" onclick="setScale('linear')" id="tgLin">Linéaire</button>
+  </div>
+  <canvas id="fanChart"></canvas>
+</div>
+
+<div class="section-title">Jalons médians · combien d'années pour chaque palier</div>
+<section class="milestones" id="milestonesContainer"></section>
+
+<footer>
+  ❧ Projection Monte Carlo locale · Les oracles s'inclinent ❧
+</footer>
+
+<script>
+/* ================================================================
+   projection.html — Monte Carlo projections
+   State key: guildProjection.state
+   Depends on: common.js (window.GDCommon)
+   ================================================================ */
+
+const LS_STATE = "guildProjection.state";
+const NUM_SIMS = 1000;
+
+const PRESETS = [
+  { id: "prudent",     label: "🛡 Prudent",     ret: 5,  vol: 6,  desc: "Obligations + épargne" },
+  { id: "equilibre",   label: "⚖ Équilibré",    ret: 7,  vol: 15, desc: "Portefeuille 60/40" },
+  { id: "dynamique",   label: "⚡ Dynamique",   ret: 9,  vol: 20, desc: "Majoritairement actions" },
+  { id: "agressif",    label: "🔥 Agressif",    ret: 11, vol: 28, desc: "Actions + tech + emerging" },
+  { id: "degen",       label: "🐉 Dégen",       ret: 25, vol: 70, desc: "Crypto-heavy · amuse-toi" },
+];
+
+const DEFAULT_STATE = {
+  current: null,    // € — null = auto-read from snapshot
+  dca: 900,
+  goal: 1000000,
+  return: 7,
+  vol: 15,
+  years: 30,
+  scale: "log",     // chart Y axis
+};
+
+let state = loadState();
+let chart = null;
+let lastResult = null;
+let debounceTimer = null;
+
+/* -------- State -------- */
+function loadState(){
+  try {
+    const raw = localStorage.getItem(LS_STATE);
+    if(raw) return { ...DEFAULT_STATE, ...JSON.parse(raw) };
+  } catch(e){}
+  return { ...DEFAULT_STATE };
+}
+function saveState(){
+  try { localStorage.setItem(LS_STATE, JSON.stringify(state)); } catch(e){}
+}
+
+/* -------- Inputs init & wiring -------- */
+function initInputs(){
+  // Read snapshot for current capital default
+  const snap = GDCommon.readSnapshot();
+  const snapTotal = snap && snap.total ? snap.total : 0;
+
+  // Read last DCA from tournament state if available
+  let lastDCA = null;
+  try {
+    const trRaw = localStorage.getItem("guildTournament.state");
+    if(trRaw){
+      const tr = JSON.parse(trRaw);
+      if(tr.lastDCAAmount) lastDCA = tr.lastDCAAmount;
+    }
+  } catch(e){}
+
+  // If state has no explicit current, use snapshot
+  if(state.current == null && snapTotal > 0){
+    state.current = snapTotal;
+  } else if(state.current == null){
+    state.current = 10000;
+  }
+  // If state has default DCA and tournament has lastDCA, use it
+  if(state.dca === DEFAULT_STATE.dca && lastDCA){
+    state.dca = lastDCA;
+  }
+
+  document.getElementById("inCurrent").value = state.current;
+  document.getElementById("inDca").value     = state.dca;
+  document.getElementById("inGoal").value    = state.goal;
+  document.getElementById("inReturn").value  = state.return;
+  document.getElementById("inVol").value     = state.vol;
+  document.getElementById("inYears").value   = state.years;
+
+  // Wire up change handlers with debounce
+  ["inCurrent","inDca","inGoal","inReturn","inVol","inYears"].forEach(id => {
+    document.getElementById(id).addEventListener("input", onInputChange);
+  });
+}
+
+function onInputChange(){
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    state.current = parseFloat(document.getElementById("inCurrent").value) || 0;
+    state.dca     = parseFloat(document.getElementById("inDca").value)     || 0;
+    state.goal    = parseFloat(document.getElementById("inGoal").value)    || 1000000;
+    state.return  = parseFloat(document.getElementById("inReturn").value)  || 7;
+    state.vol     = parseFloat(document.getElementById("inVol").value)     || 15;
+    state.years   = Math.min(60, Math.max(1, parseInt(document.getElementById("inYears").value) || 30));
+    updatePresetsUI();
+    saveState();
+    runAndRender();
+  }, 350);
+}
+
+function renderPresets(){
+  const el = document.getElementById("presetsContainer");
+  el.innerHTML = PRESETS.map(p => `
+    <span class="preset-pill" data-preset="${p.id}" onclick="applyPreset('${p.id}')" title="${p.desc} (${p.ret}% return / ${p.vol}% vol)">
+      ${p.label}
+    </span>
+  `).join("");
+  updatePresetsUI();
+}
+function updatePresetsUI(){
+  document.querySelectorAll(".preset-pill").forEach(el => {
+    const p = PRESETS.find(x => x.id === el.dataset.preset);
+    const active = p && Math.abs(p.ret - state.return) < 0.01 && Math.abs(p.vol - state.vol) < 0.01;
+    el.classList.toggle("active", active);
+  });
+}
+function applyPreset(id){
+  const p = PRESETS.find(x => x.id === id);
+  if(!p) return;
+  state.return = p.ret;
+  state.vol = p.vol;
+  document.getElementById("inReturn").value = p.ret;
+  document.getElementById("inVol").value = p.vol;
+  saveState();
+  updatePresetsUI();
+  runAndRender();
+}
+
+/* -------- Monte Carlo simulation -------- */
+function randNormal(){
+  let u = 0, v = 0;
+  while(u === 0) u = Math.random();
+  while(v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function percentile(sortedArr, p){
+  if(!sortedArr.length) return 0;
+  const idx = Math.min(sortedArr.length - 1, Math.floor((p / 100) * sortedArr.length));
+  return sortedArr[idx];
+}
+
+function runMonteCarlo(params){
+  const { current, dca, goal, annualReturn, annualVol, years } = params;
+  const months = years * 12;
+  // Geometric monthly return from annual
+  const monthlyReturnMean = Math.pow(1 + annualReturn, 1/12) - 1;
+  const monthlyVol = annualVol / Math.sqrt(12);
+
+  // Milestones to track
+  const MILESTONES_EUR = [50000, 100000, 250000, 500000, 750000, 1000000];
+  // Add goal if it's not already in the list
+  if(!MILESTONES_EUR.includes(goal)){
+    MILESTONES_EUR.push(goal);
+    MILESTONES_EUR.sort((a,b) => a - b);
+  }
+  // Only keep milestones <= goal + some headroom
+  const milestones = MILESTONES_EUR.filter(m => m >= current * 0.5);
+
+  // yearlyValues[y] = array of 1000 values at end of year y
+  const yearlyValues = Array(years + 1).fill(0).map(() => []);
+  // milestoneReaches[i] = array of months when each sim first reaches milestone i
+  const milestoneReaches = milestones.map(() => []);
+  // Success: how many sims reached the goal
+  let successCount = 0;
+
+  for(let sim = 0; sim < NUM_SIMS; sim++){
+    let value = current;
+    yearlyValues[0].push(value);
+    const reached = milestones.map(() => false);
+    let simSuccess = false;
+
+    for(let m = 1; m <= months; m++){
+      const ret = monthlyReturnMean + monthlyVol * randNormal();
+      value = value * (1 + ret);
+      value += dca;
+      value = Math.max(0, value); // protect against negative
+
+      // Check milestones
+      for(let i = 0; i < milestones.length; i++){
+        if(!reached[i] && value >= milestones[i]){
+          milestoneReaches[i].push(m);
+          reached[i] = true;
+          if(milestones[i] === goal) simSuccess = true;
+        }
+      }
+
+      // Store yearly snapshot
+      if(m % 12 === 0){
+        yearlyValues[m / 12].push(value);
+      }
+    }
+    if(simSuccess) successCount++;
+  }
+
+  // Sort each year for percentile computation
+  for(const arr of yearlyValues) arr.sort((a,b) => a - b);
+  for(const arr of milestoneReaches) arr.sort((a,b) => a - b);
+
+  const p10 = yearlyValues.map(arr => percentile(arr, 10));
+  const p50 = yearlyValues.map(arr => percentile(arr, 50));
+  const p90 = yearlyValues.map(arr => percentile(arr, 90));
+
+  // Compute years labels (0, 1, ..., years)
+  const yearsLabels = Array.from({length: years + 1}, (_, i) => i);
+
+  // Milestone stats
+  const milestoneStats = milestones.map((m, i) => {
+    const reaches = milestoneReaches[i];
+    const reachRate = reaches.length / NUM_SIMS;
+    return {
+      amount: m,
+      reachRate,
+      medianYears: reaches.length >= NUM_SIMS * 0.1 ? percentile(reaches, 50) / 12 : null,
+      p10Years: reaches.length >= NUM_SIMS * 0.1 ? percentile(reaches, 10) / 12 : null,
+      p90Years: reaches.length >= NUM_SIMS * 0.1 ? percentile(reaches, 90) / 12 : null,
+    };
+  });
+
+  // Goal reach stats
+  const goalIdx = milestones.indexOf(goal);
+  const goalStats = goalIdx >= 0 ? milestoneStats[goalIdx] : null;
+
+  return {
+    years, yearsLabels,
+    p10, p50, p90,
+    successRate: successCount / NUM_SIMS,
+    goalStats,
+    milestones: milestoneStats,
+    medianFinal: p50[p50.length - 1],
+    p10Final: p10[p10.length - 1],
+    p90Final: p90[p90.length - 1],
+  };
+}
+
+/* -------- Rendering -------- */
+function setScale(s){
+  state.scale = s;
+  document.getElementById("tgLog").classList.toggle("active", s === "log");
+  document.getElementById("tgLin").classList.toggle("active", s === "linear");
+  saveState();
+  renderChart(lastResult);
+}
+
+function renderSummary(result){
+  const el = document.getElementById("summaryContainer");
+  const gs = result.goalStats;
+  const successPct = (result.successRate * 100).toFixed(0);
+
+  const successColor = result.successRate >= 0.8 ? "var(--p90)"
+                     : result.successRate >= 0.5 ? "var(--p50)"
+                     : "var(--p10)";
+
+  el.innerHTML = `
+    <div class="stat-card">
+      <div class="label">Médiane dans ${result.years} ans</div>
+      <div class="value small">${GDCommon.fmtCompact(result.medianFinal)} €</div>
+      <div class="sub">Fourchette ${GDCommon.fmtCompact(result.p10Final)} – ${GDCommon.fmtCompact(result.p90Final)} €</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Objectif atteint ?</div>
+      <div class="value small" style="color:${successColor}">${successPct}% des oracles</div>
+      <div class="sub">Probabilité sur ${result.years} ans</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Temps médian vers l'objectif</div>
+      <div class="value small">${gs && gs.medianYears ? gs.medianYears.toFixed(1) + " ans" : "jamais"}</div>
+      <div class="sub">${gs && gs.medianYears ? `Fourchette ${gs.p10Years.toFixed(1)} – ${gs.p90Years.toFixed(1)} ans` : "pas atteint dans la majorité des cas"}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Année d'atteinte probable</div>
+      <div class="value small">${gs && gs.medianYears ? (new Date().getFullYear() + Math.round(gs.medianYears)) : "—"}</div>
+      <div class="sub">${gs && gs.medianYears ? `80% : entre ${new Date().getFullYear() + Math.round(gs.p10Years)} et ${new Date().getFullYear() + Math.round(gs.p90Years)}` : "horizon insuffisant"}</div>
+    </div>
+  `;
+}
+
+function renderChart(result){
+  if(!result) return;
+  const canvas = document.getElementById("fanChart");
+  if(chart) chart.destroy();
+
+  const labels = result.yearsLabels;
+  const currentYear = new Date().getFullYear();
+  const realLabels = labels.map(y => `${y} an${y > 1 ? "s" : ""}`);
+
+  chart = new Chart(canvas.getContext("2d"), {
+    type: "line",
+    data: {
+      labels: realLabels,
+      datasets: [
+        {
+          label: "P90 (optimiste)",
+          data: result.p90,
+          borderColor: "#86efac",
+          backgroundColor: "rgba(134, 239, 172, 0.12)",
+          fill: false,
+          tension: 0.2,
+          pointRadius: 0,
+          borderWidth: 2,
+          borderDash: [4, 4],
+        },
+        {
+          label: "P50 (médiane)",
+          data: result.p50,
+          borderColor: "#fbbf24",
+          backgroundColor: "rgba(251, 191, 36, 0.15)",
+          fill: "-1",   // fill between P90 and P50
+          tension: 0.2,
+          pointRadius: 0,
+          borderWidth: 3,
+        },
+        {
+          label: "P10 (pessimiste)",
+          data: result.p10,
+          borderColor: "#f87171",
+          backgroundColor: "rgba(248, 113, 113, 0.12)",
+          fill: "-1",   // fill between P50 and P10
+          tension: 0.2,
+          pointRadius: 0,
+          borderWidth: 2,
+          borderDash: [4, 4],
+        },
+        {
+          label: `Objectif ${GDCommon.fmtCompact(state.goal)} €`,
+          data: Array(labels.length).fill(state.goal),
+          borderColor: "rgba(212, 167, 68, 0.4)",
+          borderDash: [2, 6],
+          pointRadius: 0,
+          borderWidth: 1,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2.3,
+      interaction: { intersect: false, mode: "index" },
+      scales: {
+        x: {
+          ticks: { color: "#a89878", font: { family: "'EB Garamond', serif" } },
+          grid:  { color: "rgba(212, 167, 68, 0.05)" },
+        },
+        y: {
+          type: state.scale === "log" ? "logarithmic" : "linear",
+          ticks: {
+            color: "#a89878",
+            font: { family: "'EB Garamond', serif" },
+            callback: v => GDCommon.fmtCompact(v) + " €",
+          },
+          grid: { color: "rgba(212, 167, 68, 0.05)" },
+        },
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: "#f0e4c4",
+            font: { family: "'Cinzel', serif", size: 12 },
+            boxWidth: 12,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${GDCommon.fmt(ctx.parsed.y)} €`,
+          },
+        },
+      },
+    },
+  });
+}
+
+function renderMilestones(result){
+  const el = document.getElementById("milestonesContainer");
+  const rows = result.milestones.map(m => {
+    const reachPct = (m.reachRate * 100).toFixed(0);
+    const className = m.medianYears ? "" : "unreached";
+    const years = m.medianYears ? m.medianYears.toFixed(1) : "—";
+    const rangeText = m.medianYears
+      ? `P10 ${m.p10Years.toFixed(1)} an · P50 ${m.medianYears.toFixed(1)} an · P90 ${m.p90Years.toFixed(1)} an`
+      : `Atteint par ${reachPct}% des oracles seulement`;
+    // Bar position: normalized by horizon
+    const barWidth = m.medianYears ? (m.p90Years - m.p10Years) / result.years * 100 : 0;
+    const barLeft  = m.medianYears ? m.p10Years / result.years * 100 : 0;
+    return `
+      <div class="milestone-row ${className}">
+        <div class="palier">${GDCommon.fmtCompact(m.amount)} €</div>
+        <div class="bar-container" style="position:relative;">
+          <div class="bar-fill" style="position:absolute; left:${barLeft}%; width:${barWidth}%;"></div>
+        </div>
+        <div class="years">
+          <span title="${rangeText}">${years}<span class="unit">ans</span></span>
+        </div>
+      </div>
+    `;
+  }).join("");
+  el.innerHTML = rows;
+}
+
+function runAndRender(){
+  const params = {
+    current:      state.current,
+    dca:          state.dca,
+    goal:         state.goal,
+    annualReturn: state.return / 100,
+    annualVol:    state.vol / 100,
+    years:        state.years,
+  };
+  const t0 = performance.now();
+  lastResult = runMonteCarlo(params);
+  const elapsed = performance.now() - t0;
+  document.getElementById("oraclesMeta").textContent = `${NUM_SIMS} oracles consultés · ${elapsed.toFixed(0)}ms`;
+  renderSummary(lastResult);
+  renderChart(lastResult);
+  renderMilestones(lastResult);
+}
+
+/* -------- Boot -------- */
+renderPresets();
+initInputs();
+saveState();
+runAndRender();
+</script>
+
+</body>
+</html>
