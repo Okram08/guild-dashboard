@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/js-sha3@0.9.3/build/sha3.min.js"></script>
 <style>
   :root{
     --obsidian:#07070b;
@@ -1080,7 +1081,12 @@
       <div class="field">
         <label>Wallet Crypto (Ethereum / multichain)</label>
         <input type="text" id="setCryptoWallet" placeholder="0x...">
-        <div class="hint">Valeur auto depuis DeBank (wallet + DeFi · Enzyme, Morpho, Aave, Uniswap, toutes chaines)</div>
+        <div class="hint">Adresse de ton wallet (ex Gnosis Safe). Valeur totale via DeBank ou Enzyme direct.</div>
+      </div>
+      <div class="field">
+        <label>Vault Enzyme (optionnel · recommandé)</label>
+        <input type="text" id="setEnzymeVault" placeholder="0x... (VaultProxy address)">
+        <div class="hint">Si ton wallet a une position Enzyme, query directe on-chain · rock solid · contourne DeBank</div>
       </div>
     </div>
 
@@ -1391,6 +1397,7 @@ const DEFAULT_STATE = {
   wallets: {            // On-chain wallet addresses per mage
     polymarket: "",
     crypto: "",
+    enzymeVault: "",    // Optional: Enzyme Finance vault address for direct on-chain query
   },
   walletsMeta: {        // Last fetch metadata
     polymarket: null,   // { lastValue, lastFetch, breakdown }
@@ -1457,7 +1464,7 @@ async function loadState(){
       state = JSON.parse(raw);
     }
     // Merge with defaults to handle new fields
-    state = {...DEFAULT_STATE, ...state, accounts:{...DEFAULT_STATE.accounts, ...(state.accounts||{})}};
+    state = {...DEFAULT_STATE, ...state, accounts:{...DEFAULT_STATE.accounts, ...(state.accounts||{})}, wallets:{...DEFAULT_STATE.wallets, ...(state.wallets||{})}};
   } catch(e){
     console.error("load state fail", e);
     throw e;
@@ -1669,10 +1676,9 @@ async function fetchPolygonUsdcBalance(address){
   const addr = address.toLowerCase().replace("0x","");
   const callData = "0x70a08231" + addr.padStart(64, "0");
   const USDC_CONTRACTS = [
-    "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", // USDC.e bridged (Polymarket legacy)
-    "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", // Native USDC
+    { addr: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", label: "USDC.e (bridged)" },
+    { addr: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", label: "USDC native" },
   ];
-  // Current working public Polygon RPCs (2026)
   const RPCS = [
     "https://polygon.drpc.org",
     "https://polygon-bor-rpc.publicnode.com",
@@ -1681,36 +1687,41 @@ async function fetchPolygonUsdcBalance(address){
   ];
   const proxy = (state.proxyUrl || "").trim();
   let total = 0;
+  const attempts = [];
   for(const contract of USDC_CONTRACTS){
+    let got = false;
     for(const rpc of RPCS){
       try {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 10000);
-        // Route through Worker proxy if configured (bypasses CORS + rate limits)
         const url = proxy ? proxy + encodeURIComponent(rpc) : rpc;
         const res = await fetch(url, {
           method: "POST",
           headers: {"Content-Type":"application/json"},
           body: JSON.stringify({
             jsonrpc:"2.0", id:1, method:"eth_call",
-            params:[{to: contract, data: callData}, "latest"]
+            params:[{to: contract.addr, data: callData}, "latest"]
           }),
           signal: ctrl.signal,
         });
         clearTimeout(tid);
-        if(!res.ok) continue;
+        if(!res.ok){ attempts.push(`${contract.label}@${rpc}: HTTP ${res.status}`); continue; }
         const j = await res.json();
-        if(j.error) continue;
+        if(j.error){ attempts.push(`${contract.label}@${rpc}: RPC err ${j.error.message}`); continue; }
         const hex = j.result;
-        if(!hex || hex === "0x") break;
+        if(!hex || hex === "0x"){ attempts.push(`${contract.label}@${rpc}: empty`); break; }
         const balance = parseInt(hex, 16) / 1e6;
         total += balance;
+        attempts.push(`✓ ${contract.label}: ${balance.toFixed(2)} USDC`);
+        got = true;
         break;
       } catch(e){
-        // try next RPC
+        attempts.push(`${contract.label}@${rpc}: ${e.message}`);
       }
     }
+    if(!got) console.warn("Polygon USDC: no balance for " + contract.label);
   }
+  console.log("Polygon USDC fetch attempts:", attempts.join(" | "));
   return total;
 }
 
@@ -1756,6 +1767,172 @@ async function fetchPolymarketValue(address){
     positionsUsd,
     usdcBalance,
     rate
+  };
+}
+
+/* -------- On-chain helpers for Enzyme vault query -------- */
+
+// Compute EVM function selector (4-byte signature hash) using keccak256
+function selector(signature){
+  const k = (typeof keccak_256 === "function") ? keccak_256 : (window.sha3 && window.sha3.keccak_256);
+  if(!k) throw new Error("keccak256 lib not loaded");
+  return "0x" + k(signature).slice(0, 8);
+}
+
+// Generic Ethereum JSON-RPC eth_call, routed through Worker proxy
+async function ethCall(rpcUrl, to, data){
+  const proxy = (state.proxyUrl || "").trim();
+  const url = proxy ? proxy + encodeURIComponent(rpcUrl) : rpcUrl;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        jsonrpc:"2.0", id:1, method:"eth_call",
+        params:[{to, data}, "latest"]
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(tid);
+    if(!res.ok) throw new Error("RPC HTTP " + res.status);
+    const j = await res.json();
+    if(j.error) throw new Error("RPC: " + (j.error.message || JSON.stringify(j.error)));
+    return j.result;
+  } catch(e){
+    clearTimeout(tid);
+    throw e;
+  }
+}
+
+// Try multiple Ethereum RPCs until one works
+async function ethCallWithFallback(to, data){
+  const RPCS = [
+    "https://eth.llamarpc.com",
+    "https://ethereum-rpc.publicnode.com",
+    "https://rpc.ankr.com/eth",
+    "https://cloudflare-eth.com",
+  ];
+  let lastErr = null;
+  for(const rpc of RPCS){
+    try {
+      const result = await ethCall(rpc, to, data);
+      return result;
+    } catch(e){
+      console.warn(`ETH RPC ${rpc} failed:`, e.message);
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("Tous les Ethereum RPCs ont échoué");
+}
+
+// Fetch token USD price via CoinGecko (CORS-native, free, no key)
+async function fetchTokenUsdPrice(tokenAddress){
+  const addr = tokenAddress.toLowerCase();
+
+  // Stablecoin shortcut (saves API call + prevents failures on slight CoinGecko outages)
+  const STABLES = [
+    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
+    "0xdac17f958d2ee523a2206206994597c13d831ec7", // USDT
+    "0x6b175474e89094c44da98b954eedeac495271d0f", // DAI
+  ];
+  if(STABLES.includes(addr)) return 1.0;
+
+  try {
+    const url = `https://api.coingecko.com/api/v3/simple/token_price/ethereum?contract_addresses=${addr}&vs_currencies=usd`;
+    const res = await fetch(url, {cache:"no-store"});
+    if(!res.ok) throw new Error("CoinGecko HTTP " + res.status);
+    const data = await res.json();
+    const price = data[addr] && data[addr].usd;
+    if(price) return parseFloat(price);
+  } catch(e){
+    console.warn("CoinGecko token_price fail", e.message);
+  }
+
+  // Fallback to known mappings for common tokens
+  const MAP = {
+    "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599": "wrapped-bitcoin",
+    "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": "weth",
+  };
+  const id = MAP[addr];
+  if(id){
+    try {
+      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`, {cache:"no-store"});
+      if(res.ok){
+        const data = await res.json();
+        const price = data[id] && data[id].usd;
+        if(price) return parseFloat(price);
+      }
+    } catch(e){}
+  }
+
+  throw new Error(`Prix USD introuvable pour ${tokenAddress}`);
+}
+
+// Query an Enzyme vault's value for a given user on Ethereum mainnet
+async function fetchEnzymeVaultValue(vaultAddress, userAddress){
+  const vault = vaultAddress.trim().toLowerCase();
+  const user = userAddress.trim().toLowerCase();
+  if(!/^0x[a-f0-9]{40}$/.test(vault)) throw new Error("Adresse vault Enzyme invalide");
+  if(!/^0x[a-f0-9]{40}$/.test(user)) throw new Error("Adresse user invalide");
+
+  const SEL_BALANCE_OF = selector("balanceOf(address)");
+  const SEL_GET_ACCESSOR = selector("getAccessor()");
+  const SEL_CALC_GROSS_SHARE_VALUE = selector("calcGrossShareValue()");
+  const SEL_DECIMALS = selector("decimals()");
+
+  const userPadded = user.replace("0x","").padStart(64, "0");
+
+  // 1) User's shares balance (ERC20 balanceOf on VaultProxy)
+  const sharesHex = await ethCallWithFallback(vault, SEL_BALANCE_OF + userPadded);
+  const shares = BigInt(sharesHex || "0x0");
+  if(shares === 0n){
+    return { valueEur: 0, valueUsd: 0, rate: 1, shares: 0, note: "Aucune share dans ce vault" };
+  }
+
+  // 2) Get ComptrollerProxy address via getAccessor() on VaultProxy
+  const accessorHex = await ethCallWithFallback(vault, SEL_GET_ACCESSOR);
+  if(!accessorHex || accessorHex === "0x") throw new Error("Impossible de récupérer le ComptrollerProxy");
+  const comptroller = "0x" + accessorHex.slice(-40);
+
+  // 3) Get gross share value: returns (address denominationAsset, uint256 grossShareValue)
+  //    grossShareValue = value of 1 share (10^18 wei) in denomination asset units (native decimals)
+  const grossHex = await ethCallWithFallback(comptroller, SEL_CALC_GROSS_SHARE_VALUE);
+  if(!grossHex || grossHex.length < 130) throw new Error("Réponse calcGrossShareValue invalide");
+  const denomAsset = "0x" + grossHex.slice(2, 66).slice(-40);
+  const grossShareValue = BigInt("0x" + grossHex.slice(66, 130));
+
+  // 4) Get denomination asset decimals
+  let denomDecimals = 18;
+  try {
+    const decHex = await ethCallWithFallback(denomAsset, SEL_DECIMALS);
+    denomDecimals = parseInt(decHex, 16);
+    if(isNaN(denomDecimals) || denomDecimals < 0 || denomDecimals > 30) denomDecimals = 18;
+  } catch(e){
+    console.warn("decimals() fail, assuming 18", e.message);
+  }
+
+  // 5) Compute total user value in denomination asset units (raw, then human)
+  //    totalRaw = shares * grossShareValue / 10^18
+  const totalInDenomRaw = (shares * grossShareValue) / (10n ** 18n);
+  const totalInDenomHuman = Number(totalInDenomRaw) / Math.pow(10, denomDecimals);
+
+  // 6) Convert denomination asset → USD
+  const priceUsd = await fetchTokenUsdPrice(denomAsset);
+  const valueUsd = totalInDenomHuman * priceUsd;
+  const rate = await getUsdEurRate();
+
+  return {
+    valueEur: valueUsd * rate,
+    valueUsd,
+    rate,
+    shares: Number(shares) / 1e18,
+    denomAsset,
+    denomAmount: totalInDenomHuman,
+    denomDecimals,
+    denomPriceUsd: priceUsd,
+    comptroller,
   };
 }
 
@@ -1857,14 +2034,27 @@ async function fetchEthplorerValue(address){
 }
 
 async function fetchCryptoWalletValue(address){
-  // Primary: DeBank (wallet + DeFi positions, multichain)
-  // Fallback: Ethplorer (wallet ERC20 only, Ethereum only)
+  // 1. Enzyme vault (if configured) - direct on-chain, rock-solid, no rate limits
+  const vaultAddr = ((state.wallets && state.wallets.enzymeVault) || "").trim();
+  if(vaultAddr && /^0x[a-f0-9]{40}$/i.test(vaultAddr)){
+    try {
+      const r = await fetchEnzymeVaultValue(vaultAddr, address);
+      if(r.valueEur > 0){
+        console.log("Enzyme vault value:", r);
+        return r;
+      }
+    } catch(e){
+      console.warn("Enzyme direct query failed:", e.message);
+    }
+  }
+  // 2. DeBank - multichain aggregator (often rate-limited, but catches more)
   try {
     return await fetchDeBankTotalValue(address);
   } catch(e){
     console.warn("DeBank failed, falling back to Ethplorer", e.message);
-    return fetchEthplorerValue(address);
   }
+  // 3. Ethplorer - last resort, ETH mainnet wallet ERC20 only
+  return fetchEthplorerValue(address);
 }
 
 /* ---------- Refresh all auto sources ---------- */
@@ -2470,6 +2660,7 @@ function openSettings(){
   document.getElementById("setTwelveKey").value = state.twelveDataKey || "";
   document.getElementById("setPolymarketWallet").value = (state.wallets && state.wallets.polymarket) || "";
   document.getElementById("setCryptoWallet").value = (state.wallets && state.wallets.crypto) || "";
+  document.getElementById("setEnzymeVault").value = (state.wallets && state.wallets.enzymeVault) || "";
   document.getElementById("settingsVeil").classList.add("show");
 }
 async function saveSettings(){
@@ -2479,6 +2670,7 @@ async function saveSettings(){
   const twelveKey = document.getElementById("setTwelveKey").value.trim();
   const pmWallet = document.getElementById("setPolymarketWallet").value.trim();
   const cryptoWallet = document.getElementById("setCryptoWallet").value.trim();
+  const enzymeVault = document.getElementById("setEnzymeVault").value.trim();
   state.guildName = name;
   state.goal = goal;
   state.proxyUrl = proxy;
@@ -2486,6 +2678,7 @@ async function saveSettings(){
   if(!state.wallets) state.wallets = {};
   state.wallets.polymarket = pmWallet;
   state.wallets.crypto = cryptoWallet;
+  state.wallets.enzymeVault = enzymeVault;
   await saveState();
   document.getElementById("settingsVeil").classList.remove("show");
   renderAll();
@@ -2514,7 +2707,7 @@ function doImport(file){
   reader.onload = async e => {
     try {
       const data = JSON.parse(e.target.result);
-      if(data.state) state = {...DEFAULT_STATE, ...data.state, accounts:{...DEFAULT_STATE.accounts, ...(data.state.accounts||{})}};
+      if(data.state) state = {...DEFAULT_STATE, ...data.state, accounts:{...DEFAULT_STATE.accounts, ...(data.state.accounts||{})}, wallets:{...DEFAULT_STATE.wallets, ...(data.state.wallets||{})}};
       if(Array.isArray(data.chronicle)) chronicle = data.chronicle;
       await saveState();
       await saveChronicle();
