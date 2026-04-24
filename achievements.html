@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Couronnes & Honneurs · Mille Royaume</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&family=Cinzel:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+  <script src="common.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:       #0a0611;
+      --bg-panel:      rgba(28, 18, 34, 0.78);
+      --bg-panel-hi:   rgba(40, 28, 48, 0.88);
+      --gold:          #d4a744;
+      --gold-hi:       #fbbf24;
+      --gold-soft:     rgba(212, 167, 68, 0.35);
+      --ink:           #f0e4c4;
+      --ink-dim:       #a89878;
+      --crimson:       #a03028;
+      --border:        rgba(212, 167, 68, 0.18);
+
+      --tier-bronze:    #b87333;
+      --tier-silver:    #c0c0c0;
+      --tier-gold:      #ffd700;
+      --tier-legendary: #a78bfa;
+    }
+
+    body {
+      background:
+        radial-gradient(ellipse at top, rgba(212, 167, 68, 0.08), transparent 60%),
+        radial-gradient(ellipse at bottom right, rgba(255, 215, 0, 0.04), transparent 55%),
+        var(--bg-deep);
+      color: var(--ink);
+      font-family: 'EB Garamond', Georgia, serif;
+      min-height: 100vh;
+      padding: 40px 60px;
+      background-attachment: fixed;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 28px;
+    }
+    .back-link {
+      color: var(--ink-dim);
+      text-decoration: none;
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      transition: color .2s;
+    }
+    .back-link:hover { color: var(--gold-hi); }
+    h1 {
+      font-family: 'UnifrakturCook', serif;
+      font-weight: 700;
+      font-size: 42px;
+      color: var(--gold-hi);
+      text-shadow: 0 0 30px rgba(251, 191, 36, 0.25);
+      margin-top: 2px;
+    }
+    .header-sub {
+      text-align: right;
+      font-style: italic;
+      color: var(--ink-dim);
+      font-size: 14px;
+    }
+
+    /* Stats bar */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 18px 22px;
+      text-align: center;
+    }
+    .stat-card .label {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-dim);
+      margin-bottom: 6px;
+    }
+    .stat-card .value {
+      font-family: 'UnifrakturCook', serif;
+      font-size: 34px;
+      color: var(--gold-hi);
+      line-height: 1;
+    }
+    .stat-card .sub {
+      font-size: 12px;
+      color: var(--ink-dim);
+      font-style: italic;
+      margin-top: 4px;
+    }
+
+    /* Category filter */
+    .category-filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .cat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 14px;
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--ink-dim);
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .cat-pill:hover {
+      color: var(--ink);
+      border-color: var(--gold-soft);
+    }
+    .cat-pill.active {
+      color: var(--gold-hi);
+      border-color: var(--gold);
+      background: rgba(212, 167, 68, 0.12);
+    }
+    .cat-pill .count {
+      font-size: 10px;
+      opacity: 0.6;
+    }
+
+    /* Badge grid */
+    .badges {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .badge {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      transition: all .2s;
+      min-height: 180px;
+    }
+    .badge:hover {
+      background: var(--bg-panel-hi);
+    }
+    .badge.unlocked {
+      border-color: var(--tier-color, var(--gold));
+      background:
+        radial-gradient(ellipse at top, rgba(251,191,36,0.06), transparent 60%),
+        var(--bg-panel);
+      box-shadow: inset 0 0 20px rgba(251, 191, 36, 0.03);
+    }
+    .badge.unlocked.tier-legendary {
+      border-color: var(--tier-legendary);
+      background:
+        radial-gradient(ellipse at top, rgba(167, 139, 250, 0.08), transparent 60%),
+        var(--bg-panel);
+    }
+
+    .badge-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge-icon {
+      width: 52px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      border-radius: 50%;
+      background: rgba(10, 6, 17, 0.6);
+      border: 1px solid var(--tier-color, var(--border));
+      flex-shrink: 0;
+      transition: all .3s;
+    }
+    .badge.unlocked .badge-icon {
+      background: radial-gradient(circle, rgba(251,191,36,0.15), rgba(10,6,17,0.6));
+      box-shadow: 0 0 18px rgba(251, 191, 36, 0.18), inset 0 0 10px rgba(251, 191, 36, 0.08);
+      filter: none;
+    }
+    .badge.unlocked.tier-legendary .badge-icon {
+      background: radial-gradient(circle, rgba(167, 139, 250, 0.2), rgba(10,6,17,0.6));
+      box-shadow: 0 0 25px rgba(167, 139, 250, 0.25), inset 0 0 12px rgba(167, 139, 250, 0.1);
+    }
+    .badge.locked .badge-icon {
+      filter: grayscale(1) brightness(0.4);
+      opacity: 0.5;
+    }
+
+    .badge-title-wrap {
+      flex: 1;
+      min-width: 0;
+    }
+    .badge-title {
+      font-family: 'Cinzel', serif;
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--ink);
+      letter-spacing: 0.04em;
+    }
+    .badge.unlocked .badge-title { color: var(--gold-hi); }
+    .badge.unlocked.tier-legendary .badge-title { color: var(--tier-legendary); }
+    .badge.locked .badge-title { color: var(--ink-dim); }
+
+    .badge-tier {
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--tier-color);
+      margin-top: 2px;
+      opacity: 0.85;
+    }
+
+    .badge-desc {
+      font-size: 14px;
+      color: var(--ink-dim);
+      font-style: italic;
+      line-height: 1.4;
+      flex: 1;
+    }
+
+    .badge-footer {
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .badge-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .progress-bar {
+      flex: 1;
+      height: 4px;
+      background: rgba(10, 6, 17, 0.6);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(to right, var(--tier-color), var(--gold-hi));
+      border-radius: 2px;
+      transition: width .3s;
+    }
+    .progress-text {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      color: var(--ink-dim);
+      white-space: nowrap;
+    }
+
+    .badge-unlocked-label {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge.tier-legendary .badge-unlocked-label { color: var(--tier-legendary); }
+    .badge-locked-label {
+      font-family: 'Cinzel', serif;
+      font-size: 11px;
+      color: var(--ink-dim);
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      opacity: 0.6;
+    }
+
+    /* Tier-specific color */
+    .badge[data-tier="bronze"]    { --tier-color: var(--tier-bronze); }
+    .badge[data-tier="silver"]    { --tier-color: var(--tier-silver); }
+    .badge[data-tier="gold"]      { --tier-color: var(--tier-gold); }
+    .badge[data-tier="legendary"] { --tier-color: var(--tier-legendary); }
+
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--ink-dim);
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 20px 16px; }
+      h1 { font-size: 28px; }
+      header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .stats { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <a href="index.html" class="back-link">← Retour à la Guilde</a>
+    <h1>Couronnes &amp; Honneurs</h1>
+  </div>
+  <div class="header-sub">
+    Galerie des exploits<br>
+    <span id="metaLine">—</span>
+  </div>
+</header>
+
+<div class="stats" id="statsBar"></div>
+
+<div class="category-filters" id="categoryFilters"></div>
+
+<section class="badges" id="badgesContainer"></section>
+
+<footer>
+  ❧ Les couronnes se gagnent par le temps et la discipline ❧
+</footer>
+
+<script>
+/* ================================================================
+   achievements.html — Badges & unlocks
+   State key: guildAchievements.state (stores unlock timestamps)
+   ================================================================ */
+
+const LS_STATE = "guildAchievements.state";
+
+const CATEGORIES = [
+  { id: "journal",    label: "📖 Grimoire",  color: "#a855f7" },
+  { id: "tournament", label: "⚔ Tournoi",    color: "#06b6d4" },
+  { id: "wealth",     label: "💎 Richesse",  color: "#ffd700" },
+  { id: "discipline", label: "🎯 Discipline", color: "#4ade80" },
+  { id: "conquest",   label: "🏆 Conquête",  color: "#ef4444" },
+  { id: "oracle",     label: "🔮 Oracle",    color: "#fb923c" },
+];
+
+/* ---------- BADGES DEFINITION ---------- */
+// check() returns: true (unlocked), false (locked), or {progress, max}
+const BADGES = [
+  // === JOURNAL ===
+  {
+    id: "j_first",
+    icon: "🥉",
+    title: "Premier Pas",
+    desc: "Inscrire ta première entrée au grimoire",
+    category: "journal",
+    tier: "bronze",
+    check: ({ journal }) => {
+      const n = journal?.entries?.length || 0;
+      return n >= 1 ? true : { progress: n, max: 1 };
+    },
+  },
+  {
+    id: "j_10",
+    icon: "🛡",
+    title: "Gardien du Verbe",
+    desc: "Sceller 10 entrées au grimoire",
+    category: "journal",
+    tier: "silver",
+    check: ({ journal }) => {
+      const n = journal?.entries?.length || 0;
+      return n >= 10 ? true : { progress: n, max: 10 };
+    },
+  },
+  {
+    id: "j_30",
+    icon: "📜",
+    title: "Chroniqueur",
+    desc: "Sceller 30 entrées au grimoire",
+    category: "journal",
+    tier: "gold",
+    check: ({ journal }) => {
+      const n = journal?.entries?.length || 0;
+      return n >= 30 ? true : { progress: n, max: 30 };
+    },
+  },
+  {
+    id: "j_100",
+    icon: "🦉",
+    title: "Sage du Grimoire",
+    desc: "Sceller 100 entrées au grimoire",
+    category: "journal",
+    tier: "legendary",
+    check: ({ journal }) => {
+      const n = journal?.entries?.length || 0;
+      return n >= 100 ? true : { progress: n, max: 100 };
+    },
+  },
+  {
+    id: "j_palette",
+    icon: "🎨",
+    title: "Palette Complète",
+    desc: "Utiliser chacun des 6 tags du grimoire au moins une fois",
+    category: "journal",
+    tier: "silver",
+    check: ({ journal }) => {
+      const entries = journal?.entries || [];
+      const uniqueTags = new Set(entries.map(e => e.tag));
+      const need = ["apport","vente","rebalance","reflexion","macro","autre"];
+      const got = need.filter(t => uniqueTags.has(t)).length;
+      return got >= 6 ? true : { progress: got, max: 6 };
+    },
+  },
+  {
+    id: "j_month_active",
+    icon: "💭",
+    title: "Mois Actif",
+    desc: "10 entrées dans un même mois calendaire",
+    category: "journal",
+    tier: "gold",
+    check: ({ journal }) => {
+      const entries = journal?.entries || [];
+      const byMonth = {};
+      for(const e of entries){
+        const d = new Date(e.t);
+        const key = d.getFullYear() + "-" + d.getMonth();
+        byMonth[key] = (byMonth[key] || 0) + 1;
+      }
+      const max = Math.max(0, ...Object.values(byMonth));
+      return max >= 10 ? true : { progress: max, max: 10 };
+    },
+  },
+
+  // === TOURNAMENT ===
+  {
+    id: "t_first_forge",
+    icon: "🔥",
+    title: "Forge Initiale",
+    desc: "Forger ta première guilde rivale personnalisée",
+    category: "tournament",
+    tier: "bronze",
+    check: ({ tournament }) => {
+      const rivals = tournament?.rivalGuilds || [];
+      // First 3 are presets, 4th+ is custom
+      return rivals.length >= 4 ? true : { progress: Math.max(0, rivals.length - 3), max: 1 };
+    },
+  },
+  {
+    id: "t_master_forge",
+    icon: "🏰",
+    title: "Maître Forgeur",
+    desc: "Forger 3 guildes rivales personnalisées (au-delà des presets)",
+    category: "tournament",
+    tier: "gold",
+    check: ({ tournament }) => {
+      const rivals = tournament?.rivalGuilds || [];
+      const custom = Math.max(0, rivals.length - 3);
+      return custom >= 3 ? true : { progress: custom, max: 3 };
+    },
+  },
+  {
+    id: "t_first_dca",
+    icon: "💰",
+    title: "Premier Apport",
+    desc: "Effectuer ton premier DCA sur le tournoi",
+    category: "tournament",
+    tier: "bronze",
+    check: ({ tournament }) => {
+      const dcas = Math.max(0, (tournament?.userInjections?.length || 0) - 1);
+      return dcas >= 1 ? true : { progress: dcas, max: 1 };
+    },
+  },
+  {
+    id: "t_3_dca",
+    icon: "💎",
+    title: "Discipline Croissante",
+    desc: "3 DCA effectués — tu prends le rythme",
+    category: "tournament",
+    tier: "silver",
+    check: ({ tournament }) => {
+      const dcas = Math.max(0, (tournament?.userInjections?.length || 0) - 1);
+      return dcas >= 3 ? true : { progress: dcas, max: 3 };
+    },
+  },
+  {
+    id: "t_12_dca",
+    icon: "👑",
+    title: "DCA Légendaire",
+    desc: "12 DCA — une année de discipline parfaite",
+    category: "tournament",
+    tier: "legendary",
+    check: ({ tournament }) => {
+      const dcas = Math.max(0, (tournament?.userInjections?.length || 0) - 1);
+      return dcas >= 12 ? true : { progress: dcas, max: 12 };
+    },
+  },
+  {
+    id: "t_beat_rivals",
+    icon: "⚔",
+    title: "Tueur de Rivaux",
+    desc: "Ta guilde se hisse en tête du classement (toutes rivales battues)",
+    category: "tournament",
+    tier: "gold",
+    check: ({ tournament, snapshot }) => {
+      if(!tournament || !snapshot || !snapshot.total) return false;
+      const userInvested = (tournament.userInjections || []).reduce((s,i) => s + i.amount, 0);
+      if(userInvested <= 0) return false;
+      const userPerf = (snapshot.total - userInvested) / userInvested;
+      const rivals = tournament.rivalGuilds || [];
+      if(rivals.length === 0) return false;
+      for(const g of rivals){
+        const inv = g.lastInvested || (g.injections || []).reduce((s,i) => s + i.amount, 0);
+        const val = g.lastValue || inv;
+        const perf = inv > 0 ? (val - inv) / inv : 0;
+        if(perf > userPerf) return false;
+      }
+      return true;
+    },
+  },
+  {
+    id: "t_beat_spy",
+    icon: "📈",
+    title: "Plus Brillant que les Étoiles",
+    desc: "Battre la performance de la guilde rivale basée sur SPY (S&P 500)",
+    category: "tournament",
+    tier: "silver",
+    check: ({ tournament, snapshot }) => {
+      if(!tournament || !snapshot) return false;
+      const userInvested = (tournament.userInjections || []).reduce((s,i) => s + i.amount, 0);
+      if(userInvested <= 0) return false;
+      const userPerf = (snapshot.total - userInvested) / userInvested;
+      // Find SPY rival
+      const spyGuild = (tournament.rivalGuilds || []).find(g =>
+        (g.assets || []).some(a => a.ticker === "SPY" && a.weight >= 99)
+      );
+      if(!spyGuild) return false;
+      const inv = spyGuild.lastInvested || (spyGuild.injections || []).reduce((s,i) => s + i.amount, 0);
+      const val = spyGuild.lastValue || inv;
+      const spyPerf = inv > 0 ? (val - inv) / inv : 0;
+      return userPerf > spyPerf && Math.abs(userPerf) > 0.001;
+    },
+  },
+
+  // === WEALTH ===
+  {
+    id: "w_10k",
+    icon: "🪙",
+    title: "Palier de Bronze",
+    desc: "Atteindre 10 000 € de capital investi",
+    category: "wealth",
+    tier: "bronze",
+    check: ({ snapshot }) => {
+      const t = snapshot?.total || 0;
+      return t >= 10000 ? true : { progress: t, max: 10000 };
+    },
+  },
+  {
+    id: "w_50k",
+    icon: "💰",
+    title: "Palier d'Argent",
+    desc: "Atteindre 50 000 € de capital investi",
+    category: "wealth",
+    tier: "silver",
+    check: ({ snapshot }) => {
+      const t = snapshot?.total || 0;
+      return t >= 50000 ? true : { progress: t, max: 50000 };
+    },
+  },
+  {
+    id: "w_100k",
+    icon: "💎",
+    title: "Palier d'Or",
+    desc: "Atteindre 100 000 € — la barre symbolique",
+    category: "wealth",
+    tier: "gold",
+    check: ({ snapshot }) => {
+      const t = snapshot?.total || 0;
+      return t >= 100000 ? true : { progress: t, max: 100000 };
+    },
+  },
+  {
+    id: "w_250k",
+    icon: "👑",
+    title: "Trésor Royal",
+    desc: "Atteindre 250 000 € — un quart du chemin",
+    category: "wealth",
+    tier: "gold",
+    check: ({ snapshot }) => {
+      const t = snapshot?.total || 0;
+      return t >= 250000 ? true : { progress: t, max: 250000 };
+    },
+  },
+  {
+    id: "w_500k",
+    icon: "💠",
+    title: "Maître du Royaume",
+    desc: "Atteindre 500 000 € — la moitié du chemin",
+    category: "wealth",
+    tier: "legendary",
+    check: ({ snapshot }) => {
+      const t = snapshot?.total || 0;
+      return t >= 500000 ? true : { progress: t, max: 500000 };
+    },
+  },
+  {
+    id: "w_1M",
+    icon: "⚜",
+    title: "Mille Royaume",
+    desc: "Atteindre 1 000 000 € — la légende accomplie",
+    category: "wealth",
+    tier: "legendary",
+    check: ({ snapshot }) => {
+      const t = snapshot?.total || 0;
+      return t >= 1000000 ? true : { progress: t, max: 1000000 };
+    },
+  },
+
+  // === DISCIPLINE ===
+  {
+    id: "d_chronicle_30",
+    icon: "📅",
+    title: "Mois Plein",
+    desc: "30 points dans la Chronique de la Fortune",
+    category: "discipline",
+    tier: "bronze",
+    check: ({ chronicle, snapshot }) => {
+      const n = Array.isArray(chronicle) && chronicle.length > 0
+        ? chronicle.length
+        : (snapshot?.chronicleCount || 0);
+      return n >= 30 ? true : { progress: n, max: 30 };
+    },
+  },
+  {
+    id: "d_chronicle_100",
+    icon: "📆",
+    title: "Saison du Dragon",
+    desc: "100 points dans la Chronique",
+    category: "discipline",
+    tier: "silver",
+    check: ({ chronicle, snapshot }) => {
+      const n = Array.isArray(chronicle) && chronicle.length > 0
+        ? chronicle.length
+        : (snapshot?.chronicleCount || 0);
+      return n >= 100 ? true : { progress: n, max: 100 };
+    },
+  },
+  {
+    id: "d_chronicle_365",
+    icon: "🗓",
+    title: "Année du Dragon",
+    desc: "365 points dans la Chronique — un an complet",
+    category: "discipline",
+    tier: "legendary",
+    check: ({ chronicle, snapshot }) => {
+      const n = Array.isArray(chronicle) && chronicle.length > 0
+        ? chronicle.length
+        : (snapshot?.chronicleCount || 0);
+      return n >= 365 ? true : { progress: n, max: 365 };
+    },
+  },
+  {
+    id: "d_all_mages",
+    icon: "⚜",
+    title: "Les Six Mages",
+    desc: "Les 6 mages sont tous invoqués (valeur > 0)",
+    category: "discipline",
+    tier: "gold",
+    check: ({ snapshot, mainState }) => {
+      // Prefer mainState (unencrypted fallback); else use snapshot.mageCount
+      if(mainState?.accounts){
+        const ids = ["savings","degiro","common","personal","crypto","polymarket"];
+        const n = ids.filter(id => (mainState.accounts[id] || 0) > 0).length;
+        return n >= 6 ? true : { progress: n, max: 6 };
+      }
+      const n = snapshot?.mageCount || 0;
+      return n >= 6 ? true : { progress: n, max: 6 };
+    },
+  },
+  {
+    id: "d_auto_wallets",
+    icon: "⚡",
+    title: "Automate Alchimique",
+    desc: "3 wallets on-chain configurés pour auto-fetch",
+    category: "discipline",
+    tier: "silver",
+    check: ({ snapshot, mainState }) => {
+      if(mainState?.wallets){
+        const keys = ["polymarket","crypto","enzymeVault"];
+        const n = keys.filter(k => ((mainState.wallets[k] || "").trim().length > 0)).length;
+        return n >= 3 ? true : { progress: n, max: 3 };
+      }
+      const n = snapshot?.autoWalletCount || 0;
+      return n >= 3 ? true : { progress: n, max: 3 };
+    },
+  },
+
+  // === CONQUEST ===
+  {
+    id: "c_first_rebalance",
+    icon: "⚖",
+    title: "Premier Rééquilibrage",
+    desc: "Noter au grimoire ta première action de Rebalance",
+    category: "conquest",
+    tier: "bronze",
+    check: ({ journal }) => {
+      const entries = journal?.entries || [];
+      return entries.some(e => e.tag === "rebalance");
+    },
+  },
+  {
+    id: "c_macro_observer",
+    icon: "🌍",
+    title: "Observateur du Monde",
+    desc: "10 observations macro notées au grimoire",
+    category: "conquest",
+    tier: "silver",
+    check: ({ journal }) => {
+      const n = (journal?.entries || []).filter(e => e.tag === "macro").length;
+      return n >= 10 ? true : { progress: n, max: 10 };
+    },
+  },
+  {
+    id: "c_first_sale",
+    icon: "📉",
+    title: "Courage de Vendre",
+    desc: "Noter au grimoire ta première vente de position",
+    category: "conquest",
+    tier: "silver",
+    check: ({ journal }) => {
+      const entries = journal?.entries || [];
+      return entries.some(e => e.tag === "vente");
+    },
+  },
+
+  // === ORACLE (Projection Monte Carlo) ===
+  {
+    id: "o_first_consultation",
+    icon: "🔮",
+    title: "Consultation",
+    desc: "Consulter les oracles pour la première fois (Projection Monte Carlo)",
+    category: "oracle",
+    tier: "bronze",
+    check: ({ projection }) => {
+      return !!(projection && projection.lastResult);
+    },
+  },
+  {
+    id: "o_visionnaire",
+    icon: "🌟",
+    title: "Visionnaire",
+    desc: "Projection avec ≥60% de chances d'atteindre l'objectif",
+    category: "oracle",
+    tier: "silver",
+    check: ({ projection }) => {
+      const rate = projection?.lastResult?.successRate || 0;
+      const pct = Math.round(rate * 100);
+      return pct >= 60 ? true : { progress: pct, max: 60 };
+    },
+  },
+  {
+    id: "o_serment_mille",
+    icon: "🔱",
+    title: "Serment du Mille",
+    desc: "Projection ≥85% de succès sur 1M€ en <25 ans",
+    category: "oracle",
+    tier: "legendary",
+    check: ({ projection }) => {
+      const r = projection?.lastResult;
+      if(!r) return { progress: 0, max: 85 };
+      const okRate = (r.successRate || 0) >= 0.85;
+      const okYears = r.medianYears != null && r.medianYears <= 25;
+      const okGoal = r.goal != null && r.goal >= 1000000;
+      if(okRate && okYears && okGoal) return true;
+      // Progress : pourcentage de succès clamped à 85
+      const pct = Math.min(85, Math.round((r.successRate || 0) * 100));
+      return { progress: pct, max: 85 };
+    },
+  },
+];
+
+/* -------- State management -------- */
+function loadState(){
+  try {
+    const raw = localStorage.getItem(LS_STATE);
+    if(raw) return { unlockedAt: {}, ...JSON.parse(raw) };
+  } catch(e){}
+  return { unlockedAt: {} };
+}
+function saveState(s){
+  try { localStorage.setItem(LS_STATE, JSON.stringify(s)); } catch(e){}
+}
+
+/* -------- Read data from all sources -------- */
+function readAllSources(){
+  const snapshot = GDCommon.readSnapshot();
+  let tournament = null, journal = null, mainState = null, chronicle = null, projection = null;
+  try {
+    const raw = localStorage.getItem("guildTournament.state");
+    if(raw) tournament = JSON.parse(raw);
+  } catch(e){}
+  try {
+    const raw = localStorage.getItem("guildJournal.state");
+    if(raw) journal = JSON.parse(raw);
+  } catch(e){}
+  try {
+    const raw = localStorage.getItem("guildProjection.state");
+    if(raw) projection = JSON.parse(raw);
+  } catch(e){}
+  // Main state is encrypted → read accounts from snapshot if available
+  //   but snapshot only has total, not individual accounts
+  //   For account-level badges, try unencrypted fallback or use raw
+  // The main dashboard writes only the snapshot publicly. Account details not exposed.
+  // Chronicle is stored in a separate key; it might be encrypted though.
+  try {
+    const raw = localStorage.getItem("grimoire-chronicle-v1");
+    if(raw){
+      const parsed = JSON.parse(raw);
+      // Chronicle may be encrypted; try to use if parseable as array
+      if(Array.isArray(parsed)) chronicle = parsed;
+    }
+  } catch(e){}
+  // For main state accounts: we can't read encrypted. Try unencrypted first.
+  try {
+    const raw = localStorage.getItem("grimoire-state-v1");
+    if(raw){
+      try {
+        const parsed = JSON.parse(raw);
+        if(parsed && parsed.accounts) mainState = parsed;
+      } catch(e){}
+    }
+  } catch(e){}
+  return { snapshot, tournament, journal, mainState, chronicle, projection };
+}
+
+/* -------- Evaluation -------- */
+function evaluateBadge(badge, ctx){
+  try {
+    const r = badge.check(ctx);
+    if(r === true) return { unlocked: true };
+    if(r === false) return { unlocked: false };
+    if(typeof r === "object" && r != null){
+      const progress = Math.max(0, r.progress || 0);
+      const max = Math.max(1, r.max || 1);
+      return { unlocked: progress >= max, progress, max };
+    }
+    return { unlocked: false };
+  } catch(e){
+    console.warn("Badge check fail", badge.id, e);
+    return { unlocked: false, error: true };
+  }
+}
+
+function evaluateAll(){
+  const ctx = readAllSources();
+  return BADGES.map(b => ({
+    ...b,
+    ...evaluateBadge(b, ctx),
+  }));
+}
+
+/* -------- Unlock persistence & detection -------- */
+function syncUnlockDates(evaluated){
+  const st = loadState();
+  let changed = false;
+  const newlyUnlocked = [];
+  for(const b of evaluated){
+    if(b.unlocked && !st.unlockedAt[b.id]){
+      st.unlockedAt[b.id] = Date.now();
+      newlyUnlocked.push(b);
+      changed = true;
+    }
+  }
+  if(changed) saveState(st);
+  return { state: st, newlyUnlocked };
+}
+
+/* -------- Rendering -------- */
+let currentCategory = "all";
+
+function renderStats(evaluated, stateObj){
+  const total = evaluated.length;
+  const unlocked = evaluated.filter(b => b.unlocked).length;
+  const pct = Math.round((unlocked / total) * 100);
+  const legendary = evaluated.filter(b => b.tier === "legendary");
+  const legUnlocked = legendary.filter(b => b.unlocked).length;
+  const inProgress = evaluated.filter(b => !b.unlocked && b.progress > 0).length;
+
+  document.getElementById("statsBar").innerHTML = `
+    <div class="stat-card">
+      <div class="label">Couronnes</div>
+      <div class="value">${unlocked}<span style="font-size:18px;color:var(--ink-dim);">/${total}</span></div>
+      <div class="sub">${pct}% débloqué</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Légendaires</div>
+      <div class="value">${legUnlocked}<span style="font-size:18px;color:var(--ink-dim);">/${legendary.length}</span></div>
+      <div class="sub">Les titres rares</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">En progression</div>
+      <div class="value">${inProgress}</div>
+      <div class="sub">Presque atteintes</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Horizon</div>
+      <div class="value" style="font-size:18px;font-family:'Cinzel',serif;">${total - unlocked}</div>
+      <div class="sub">Couronnes restantes</div>
+    </div>
+  `;
+  document.getElementById("metaLine").textContent = `${unlocked} / ${total} gagnées`;
+}
+
+function renderCategoryFilters(evaluated){
+  const byCat = { all: evaluated.length };
+  for(const c of CATEGORIES) byCat[c.id] = 0;
+  for(const b of evaluated) if(byCat[b.category] != null) byCat[b.category]++;
+  const unlockedByCat = { all: evaluated.filter(b => b.unlocked).length };
+  for(const c of CATEGORIES) unlockedByCat[c.id] = 0;
+  for(const b of evaluated) if(b.unlocked && unlockedByCat[b.category] != null) unlockedByCat[b.category]++;
+
+  let html = `<span class="cat-pill ${currentCategory === 'all' ? 'active' : ''}" onclick="setCategory('all')">
+    Tout <span class="count">${unlockedByCat.all}/${byCat.all}</span>
+  </span>`;
+  for(const c of CATEGORIES){
+    html += `<span class="cat-pill ${currentCategory === c.id ? 'active' : ''}" onclick="setCategory('${c.id}')" style="color: ${c.color}">
+      ${c.label} <span class="count">${unlockedByCat[c.id]}/${byCat[c.id]}</span>
+    </span>`;
+  }
+  document.getElementById("categoryFilters").innerHTML = html;
+}
+
+function setCategory(cat){
+  currentCategory = cat;
+  render();
+}
+
+function renderBadges(evaluated, stateObj){
+  const filtered = currentCategory === "all"
+    ? evaluated
+    : evaluated.filter(b => b.category === currentCategory);
+
+  // Sort: unlocked (most recent first) > in-progress (high %) > locked
+  filtered.sort((a, b) => {
+    if(a.unlocked && !b.unlocked) return -1;
+    if(!a.unlocked && b.unlocked) return 1;
+    if(a.unlocked && b.unlocked){
+      const ta = stateObj.unlockedAt[a.id] || 0;
+      const tb = stateObj.unlockedAt[b.id] || 0;
+      return tb - ta; // newest first
+    }
+    // Both locked: by progress ratio desc
+    const pa = a.max > 0 ? (a.progress || 0) / a.max : 0;
+    const pb = b.max > 0 ? (b.progress || 0) / b.max : 0;
+    return pb - pa;
+  });
+
+  document.getElementById("badgesContainer").innerHTML = filtered.map(b => {
+    const unlockedAt = stateObj.unlockedAt[b.id];
+    let footerHtml;
+    if(b.unlocked){
+      const dt = unlockedAt ? new Date(unlockedAt).toLocaleDateString("fr-FR") : "";
+      footerHtml = `<div class="badge-unlocked-label">✓ Débloquée${dt ? " le " + dt : ""}</div>`;
+    } else if(b.progress != null && b.max > 0){
+      const pct = Math.min(100, (b.progress / b.max) * 100);
+      const progressText = b.max >= 1000
+        ? `${GDCommon.fmtCompact(b.progress)} / ${GDCommon.fmtCompact(b.max)}`
+        : `${b.progress} / ${b.max}`;
+      footerHtml = `
+        <div class="badge-progress">
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <span class="progress-text">${progressText}</span>
+        </div>`;
+    } else {
+      footerHtml = `<div class="badge-locked-label">🔒 Verrouillée</div>`;
+    }
+    return `
+      <div class="badge ${b.unlocked ? 'unlocked' : 'locked'} tier-${b.tier}" data-tier="${b.tier}">
+        <div class="badge-header">
+          <div class="badge-icon">${b.icon}</div>
+          <div class="badge-title-wrap">
+            <div class="badge-title">${b.title}</div>
+            <div class="badge-tier">${b.tier}</div>
+          </div>
+        </div>
+        <div class="badge-desc">${b.desc}</div>
+        <div class="badge-footer">${footerHtml}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function render(){
+  const evaluated = evaluateAll();
+  const { state: stateObj, newlyUnlocked } = syncUnlockDates(evaluated);
+  renderStats(evaluated, stateObj);
+  renderCategoryFilters(evaluated);
+  renderBadges(evaluated, stateObj);
+  if(newlyUnlocked.length > 0){
+    setTimeout(() => {
+      GDCommon.toast(`🏆 ${newlyUnlocked.length} nouvelle${newlyUnlocked.length > 1 ? "s" : ""} couronne${newlyUnlocked.length > 1 ? "s" : ""} débloquée${newlyUnlocked.length > 1 ? "s" : ""} !`, 5000);
+    }, 300);
+  }
+}
+
+/* -------- Boot -------- */
+render();
+</script>
+
+</body>
+</html>
